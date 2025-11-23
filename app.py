@@ -477,3 +477,12 @@ def get_data_from_sheet():
         return str(ex)
     finally:
         pass
+
+
+# Example route
+@app.route("/", endpoint="home_page")
+def home():  # Function can keep the same name
+    return "Hello Flask!"
+
+if __name__ == "__main__":
+    app.run(debug=True)

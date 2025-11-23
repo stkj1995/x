@@ -1,4 +1,4 @@
-from flask import request, make_response, render_template
+from flask import Flask, request, make_response, render_template
 import mysql.connector
 import re 
 import dictionary
@@ -10,21 +10,53 @@ from functools import wraps
 
 import json
 
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 from icecream import ic
 ic.configureOutput(prefix=f'----- | ', includeContext=True)
 
+app = Flask(__name__)
+
 UPLOAD_ITEM_FOLDER = './images'
 
 ##############################
-allowed_languages = ["english", "danish", "spanish"]
-google_spread_sheet_key = "1TwU2j9Q32xUBA89Gb2iTeHdTAP7r3qAnoFZDUVtUmvo"
-default_language = "english"
+# allowed_languages = ["english", "danish", "spanish"]
+# google_spread_sheet_key = "1TwU2j9Q32xUBA89Gb2iTeHdTAP7r3qAnoFZDUVtUmvo"
+# default_language = "english"
 
-def lans(key):
-    with open("dictionary.json", 'r', encoding='utf-8') as file:
-        data = json.load(file)
-    return data[key][default_language]
+# def lans(key):
+#     with open("dictionary.json", 'r', encoding='utf-8') as file:
+#         data = json.load(file)
+#     return data[key][default_language]
+
+##############################
+# Multilanguage / Google Sheets setup
+allowed_languages = ["english", "danish", "spanish"]
+default_language = "english"
+google_spread_sheet_key = "1TwU2j9Q32xUBA89Gb2iTeHdTAP7r3qAnoFZDUVtUmvo"
+
+# Authenticate with Google Sheets using the service account
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = ServiceAccountCredentials.from_json_keyfile_name("service_account.json", scope)
+client = gspread.authorize(creds)
+
+# Open the sheet and fetch all rows
+sheet = client.open_by_key(google_spread_sheet_key).sheet1
+rows = sheet.get_all_records()
+print(rows)  # Optional: check that the rows loaded correctly
+
+# Build the dictionary for translations
+dictionary = {}
+for row in rows:
+    key = row['key']
+    dictionary[key] = {lang: row[lang] for lang in allowed_languages}
+
+# Function to get translation
+def lans(key, lang=None):
+    lang = lang if lang in allowed_languages else default_language
+    return dictionary.get(key, {}).get(lang, key)
+
 
 ##############################
 def db():
