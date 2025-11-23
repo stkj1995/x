@@ -18,7 +18,7 @@ UPLOAD_ITEM_FOLDER = './images'
 
 ##############################
 allowed_languages = ["english", "danish", "spanish"]
-google_spread_sheet_key = ""
+google_spread_sheet_key = "1TwU2j9Q32xUBA89Gb2iTeHdTAP7r3qAnoFZDUVtUmvo"
 default_language = "english"
 
 def lans(key):
@@ -55,7 +55,7 @@ def no_cache(view):
 
 
 ##############################
-REGEX_EMAIL = "^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$"
+REGEX_EMAIL = r"^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$"
 def validate_user_email(lan = "en"):
     user_email = request.form.get("user_email", "").strip()
     if not re.match(REGEX_EMAIL, user_email): raise Exception(dictionary.invalid_email[lan], 400)
@@ -140,7 +140,7 @@ def send_email(to_email, subject, template):
 
         # Email and password of the sender's Gmail account
         sender_email = "sophieteinvigkjer@gmail.com"
-        password = "eyha yoon tlhb fvim"  # If 2FA is on, use an App Password instead
+        password = "password"  # If 2FA is on, use an App Password instead
 
         # Receiver email address
         receiver_email = to_email
