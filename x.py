@@ -3,9 +3,6 @@ import mysql.connector
 import re 
 import dictionary
 
-from dotenv import load_dotenv
-load_dotenv()
-
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -36,31 +33,28 @@ UPLOAD_ITEM_FOLDER = './images'
 #     return data[key][default_language]
 
 ##############################
+# Multilanguage / Google Sheets setup
 allowed_languages = ["english", "danish", "spanish"]
 default_language = "english"
 google_spread_sheet_key = "1TwU2j9Q32xUBA89Gb2iTeHdTAP7r3qAnoFZDUVtUmvo"
 
-# Load credentials from environment
-from dotenv import load_dotenv
-load_dotenv()
-
-creds_json_str = os.getenv("GOOGLE_CREDS_JSON")
-creds_dict = json.loads(creds_json_str)
-
+# Authenticate with Google Sheets using the service account
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+creds = ServiceAccountCredentials.from_json_keyfile_name("service_account.json", scope)
 client = gspread.authorize(creds)
 
-# Open sheet and fetch rows
+# Open the sheet and fetch all rows
 sheet = client.open_by_key(google_spread_sheet_key).sheet1
 rows = sheet.get_all_records()
+print(rows)  # Optional: check that the rows loaded correctly
 
-# Build dictionary
+# Build the dictionary for translations
 dictionary = {}
 for row in rows:
     key = row['key']
     dictionary[key] = {lang: row[lang] for lang in allowed_languages}
 
+# Function to get translation
 def lans(key, lang=None):
     lang = lang if lang in allowed_languages else default_language
     return dictionary.get(key, {}).get(lang, key)
