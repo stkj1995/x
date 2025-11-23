@@ -36,23 +36,34 @@ UPLOAD_ITEM_FOLDER = './images'
 # Multilanguage / Google Sheets setup
 allowed_languages = ["english", "danish", "spanish"]
 default_language = "english"
-google_spread_sheet_key = "1TwU2j9Q32xUBA89Gb2iTeHdTAP7r3qAnoFZDUVtUmvo"
+google_spread_sheet_key = "YOUR_SPREADSHEET_KEY"  # placeholder
 
-# Authenticate with Google Sheets using the service account
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("service_account.json", scope)
-client = gspread.authorize(creds)
+# For exam / local testing: do not expose real service account
+# If you want to test without Google Sheets, just load a local dictionary
+try:
+    import gspread
+    from oauth2client.service_account import ServiceAccountCredentials
 
-# Open the sheet and fetch all rows
-sheet = client.open_by_key(google_spread_sheet_key).sheet1
-rows = sheet.get_all_records()
-print(rows)  # Optional: check that the rows loaded correctly
+    # Authenticate with Google Sheets using the service account
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds = ServiceAccountCredentials.from_json_keyfile_name("service_account.json", scope)
+    client = gspread.authorize(creds)
 
-# Build the dictionary for translations
-dictionary = {}
-for row in rows:
-    key = row['key']
-    dictionary[key] = {lang: row[lang] for lang in allowed_languages}
+    # Open the sheet and fetch all rows
+    sheet = client.open_by_key(google_spread_sheet_key).sheet1
+    rows = sheet.get_all_records()
+    
+    # Build the dictionary for translations
+    dictionary = {}
+    for row in rows:
+        key = row['key']
+        dictionary[key] = {lang: row[lang] for lang in allowed_languages}
+
+except Exception as e:
+    # Fallback to local dictionary.json for testing without real credentials
+    import json
+    with open("dictionary.json", "r", encoding="utf-8") as f:
+        dictionary = json.load(f)
 
 # Function to get translation
 def lans(key, lang=None):
