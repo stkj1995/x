@@ -39,4 +39,10 @@ def send_verify_email(to_email, user_verification_key):
         pass
 
 
-    # annsofie was here :)))
+    # annsofie was here
+
+
+
+    ######## dette er en branch stkj test
+
+    ### dette er en main branch test
