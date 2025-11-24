@@ -1,5 +1,11 @@
+document.addEventListener("DOMContentLoaded", () => {
+    document.body.classList.remove("hidden-on-load");
+});
+
+
 const burger = document.querySelector(".burger");
 const nav = document.querySelector("nav");
+
 
 // ##############################
 function editPost(post_pk, currentText) {
