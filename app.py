@@ -113,9 +113,9 @@ def login(lan = "english"):
 ##############################
 @app.route("/signup", methods=["GET", "POST"])
 @app.route("/signup/<lan>", methods=["GET", "POST"])
-def signup(lan = "english"):
-
-    if lan not in x.allowed_languages: lan = "english"
+def signup(lan="english"):
+    if lan not in x.allowed_languages:
+        lan = "english"
     x.default_language = lan
 
     if request.method == "GET":
@@ -123,7 +123,7 @@ def signup(lan = "english"):
 
     if request.method == "POST":
         try:
-            # Validate
+            # Validate input
             user_email = x.validate_user_email()
             user_password = x.validate_user_password()
             user_username = x.validate_user_username()
@@ -134,44 +134,45 @@ def signup(lan = "english"):
             user_avatar_path = "https://avatar.iran.liara.run/public/40"
             user_verification_key = uuid.uuid4().hex
             user_verified_at = 0
-
             user_hashed_password = generate_password_hash(user_password)
 
-            # Connect to the database
-            q = "INSERT INTO users VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            # Save to DB
             db, cursor = x.db()
-            cursor.execute(q, (user_pk, user_email, user_hashed_password, user_username, 
-            user_first_name, user_last_name, user_avatar_path, user_verification_key, user_verified_at))
+            cursor.execute(
+                "INSERT INTO users VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (
+                    user_pk, user_email, user_hashed_password, user_username,
+                    user_first_name, user_last_name, user_avatar_path,
+                    user_verification_key, user_verified_at
+                )
+            )
             db.commit()
 
-            # send verification email
-            email_verify_account = render_template("_email_verify_account.html", user_verification_key=user_verification_key)
-            ic(email_verify_account)
-            x.send_email(user_email, "Verify your account", email_verify_account)
+            # Send verification email
+            email_content = render_template("_email_verify_account.html", key=user_verification_key)
+            x.send_email(user_email, "Verify your account", email_content)
 
-            return f"""<mixhtml mix-redirect="{ url_for('login') }"></mixhtml>""", 400
+            return f"""<mixhtml mix-redirect="{ url_for('login') }"></mixhtml>"""
+
         except Exception as ex:
-            ic(ex)
-            # User errors
-            if ex.args[1] == 400:
-                toast_error = render_template("___toast_error.html", message=ex.args[0])
-                return f"""<mixhtml mix-update="#toast">{ toast_error }</mixhtml>""", 400
-            
-            # Database errors
-            if "Duplicate entry" and user_email in str(ex): 
-                toast_error = render_template("___toast_error.html", message="Email already registered")
-                return f"""<mixhtml mix-update="#toast">{ toast_error }</mixhtml>""", 400
-            if "Duplicate entry" and user_username in str(ex): 
-                toast_error = render_template("___toast_error.html", message="Username already registered")
-                return f"""<mixhtml mix-update="#toast">{ toast_error }</mixhtml>""", 400
-            
-            # System or developer error
-            toast_error = render_template("___toast_error.html", message="System under maintenance")
-            return f"""<mixhtml mix-bottom="#toast">{ toast_error }</mixhtml>""", 500
+            msg = str(ex)
+            if "Duplicate entry" in msg:
+                if user_email in msg:
+                    toast_msg = "Email already registered"
+                elif user_username in msg:
+                    toast_msg = "Username already registered"
+                else:
+                    toast_msg = "Duplicate entry"
+            else:
+                toast_msg = "System under maintenance"
+
+            toast_error = render_template("___toast_error.html", message=toast_msg)
+            return f"""<mixhtml mix-update="#toast">{ toast_error }</mixhtml>""", 400
 
         finally:
             if "cursor" in locals(): cursor.close()
             if "db" in locals(): db.close()
+
 
 ##############################
 @app.get("/home")
