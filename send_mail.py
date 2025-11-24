@@ -11,7 +11,7 @@ def send_verify_email(to_email, user_verification_key):
         password = "twgevqidefiipzwc" # If 2FA is on, use an App Password instead
 
         # Receiver email address
-        receiver_email = "sophieteinvigkjer@gmail.com"
+        receiver_email = "{user_email}"
         
         # Create the email message
         message = MIMEMultipart()
