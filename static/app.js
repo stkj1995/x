@@ -88,16 +88,16 @@ function parse_search_results(data_from_server) {
     data_from_server.forEach(user => {
         let user_avatar_path = user.user_avatar_path ? user.user_avatar_path : "unknown.jpg";
         let html = `
-            <div class="d-flex a-items-center">
-                <img src="/static/images/${user_avatar_path}" class="w-8 h-8 rounded-full" alt="Profile Picture">
-                <div class="w-full ml-2">
-                    <p>
-                        ${user.user_first_name} ${user.user_last_name}
-                        <span class="text-c-gray:+20 text-70">@${user.user_username}</span>
-                    </p>
-                </div>
-                <button class="px-4 py-1 text-c-white bg-c-black rounded-lg">Follow</button>
-            </div>`;
+        <div class="d-flex a-items-center">
+            <img src="${user_avatar_path}" class="w-8 h-8 rounded-full" alt="Profile Picture">
+            <div class="w-full ml-2">
+                <p>
+                    ${user.user_first_name} ${user.user_last_name}
+                    <span class="text-c-gray:+20 text-70">@${user.user_username}</span>
+                </p>
+            </div>
+            <button class="px-4 py-1 text-c-white bg-c-black rounded-lg">Follow</button>
+        </div>`;
         users += html;
     });
     document.querySelector("#search_results").innerHTML = users;

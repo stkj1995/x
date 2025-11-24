@@ -48,7 +48,6 @@ def global_variables():
         x = x
     )
 
-
 ##############################
 @app.route("/login", methods=["GET", "POST"])
 @app.route("/login/<lan>", methods=["GET", "POST"])
@@ -82,9 +81,17 @@ def login(lan = "english"):
             
             ic("user_verification_key:", user["user_verification_key"])
 
-            user.pop("user_password")
+           # Remove the password from the user dict
+            user.pop("user_password", None)  # safe pop in case it's missing
 
-            session["user"] = user
+            # Save a clean user object in session with defaults
+            session["user"] = {
+                "user_pk": user["user_pk"],
+                "user_username": user["user_username"],
+                "user_first_name": user.get("user_first_name", ""),
+                "user_last_name": user.get("user_last_name", ""),
+                "user_avatar_path": user.get("user_avatar_path") or "unknown.jpg"
+            }
             return f"""<browser mix-redirect="/home"></browser>"""
 
         except Exception as ex:
@@ -102,9 +109,6 @@ def login(lan = "english"):
         finally:
             if "cursor" in locals(): cursor.close()
             if "db" in locals(): db.close()
-
-
-
 
 ##############################
 @app.route("/signup", methods=["GET", "POST"])
@@ -168,9 +172,6 @@ def signup(lan = "english"):
         finally:
             if "cursor" in locals(): cursor.close()
             if "db" in locals(): db.close()
-
-
-
 
 ##############################
 @app.get("/home")
@@ -240,8 +241,6 @@ def logout():
     finally:
         pass
 
-
-
 ##############################
 @app.get("/home-comp")
 def home_comp():
@@ -263,7 +262,6 @@ def home_comp():
     finally:
         pass
 
-
 ##############################
 @app.get("/profile")
 def profile():
@@ -281,8 +279,6 @@ def profile():
         return "error"
     finally:
         pass
-
-
 
 ##############################
 @app.patch("/like-tweet")
@@ -303,14 +299,19 @@ def api_like_tweet():
         # if "db" in locals(): db.close()
         pass
 
-
 ##############################
 @app.route("/api-create-post", methods=["POST"])
 def api_create_post():
     try:
         user = session.get("user", "")
         if not user: return "invalid user"
-        user_pk = user["user_pk"]        
+
+        user_pk = user["user_pk"]   
+
+        # DEBUG: check session and form data
+        ic("User in session:", user)
+        ic("New post content:", request.form.get("post", ""))
+
         post = x.validate_post(request.form.get("post", ""))
         post_pk = uuid.uuid4().hex
         post_image_path = ""
@@ -351,13 +352,19 @@ def api_create_post():
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()    
 
-
+#####################
 @app.route("/api-update-post/<post_pk>", methods=["POST"])
 def api_update_post(post_pk):
     try:
         user = session.get("user", "")
         if not user: return "invalid user"
+
         user_pk = user["user_pk"]
+
+        # DEBUG
+        ic("User in session:", user)
+        ic("Post PK to update:", post_pk)
+        ic("Updated post content:", request.form.get("post", ""))
 
         db, cursor = x.db()
         # Get existing post
@@ -372,6 +379,15 @@ def api_update_post(post_pk):
         new_post = x.validate_post(request.form.get("post", ""))
         cursor.execute("UPDATE posts SET post_message=%s WHERE post_pk=%s", (new_post, post_pk))
         db.commit()
+
+        # Save a clean user object in session with defaults
+        session["user"] = {
+                "user_pk": user["user_pk"],
+                "user_username": user["user_username"],
+                "user_first_name": user.get("user_first_name", ""),
+                "user_last_name": user.get("user_last_name", ""),
+                "user_avatar_path": user.get("user_avatar_path") or "unknown.jpg"
+            }
 
         # Re-render updated post
         tweet = {
@@ -392,7 +408,6 @@ def api_update_post(post_pk):
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
-
 
 @app.route("/api-delete-post/<post_pk>", methods=["POST"])
 def api_delete_post(post_pk):
@@ -429,8 +444,6 @@ def api_delete_post(post_pk):
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
-
-
 
 ##############################
 @app.route("/api-update-profile", methods=["POST"])
@@ -482,10 +495,6 @@ def api_update_profile():
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
-   
-    
-   
-
 
 ##############################
 @app.post("/api-search")
@@ -507,8 +516,6 @@ def api_search():
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
-
-
 
 ##############################
 @app.get("/get-data-from-sheet")
