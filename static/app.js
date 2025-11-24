@@ -13,27 +13,49 @@ function editPost(post_pk, currentText) {
     postDiv.innerHTML = `
         <textarea id="edit_text_${post_pk}">${currentText}</textarea>
         <button onclick="savePost('${post_pk}')">Save</button>
-        <button onclick="cancelEdit('${post_pk}', \`${currentText}\`)">Cancel</button>
+        <button onclick="cancelEdit('${post_pk}', '${currentText.replace(/'/g,"\\'")}')">Cancel</button>
     `;
 }
 
 // ##############################
-function savePost(post_pk) {
+async function savePost(post_pk) {
     const postDiv = document.getElementById(`post_${post_pk}`);
     const newText = document.getElementById(`edit_text_${post_pk}`).value;
-    const formData = new FormData();
-    formData.append("post", newText);
 
-    fetch(`/api-update-post/${post_pk}`, { method: "POST", body: formData })
-        .then(res => {
-            if (!res.ok) throw new Error("Error updating post");
-            return res.text();
-        })
-        .then(html => {
-            if (postDiv) postDiv.outerHTML = html;
-        })
-        .catch(err => console.error(err));
+    console.log("Saving post:", post_pk, newText);
+
+    // Update the DOM immediately for instant feedback
+    if (postDiv) {
+        postDiv.innerHTML = `
+            <p class="text">${newText}</p>
+            <button onclick="editPost('${post_pk}', \`${newText}\`)">Edit</button>
+            <button onclick="deletePost('${post_pk}')">Delete</button>
+        `;
+    }
+
+    // Send the update to the server
+    try {
+        const response = await fetch(`/api-update-post/${post_pk}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ post_message: newText })
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+            console.error("Server failed to update post:", result.error);
+            alert("Failed to save post on server.");
+            // Optional: revert to previous text if server fails
+        } else {
+            console.log("Post successfully updated on server");
+        }
+    } catch (err) {
+        console.error("Error saving post on server:", err);
+        alert("Error connecting to server.");
+        // Optional: revert to previous text if server fails
+    }
 }
+
 
 // ##############################
 function cancelEdit(post_pk, originalText) {
@@ -49,15 +71,10 @@ function cancelEdit(post_pk, originalText) {
 
 // ##############################
 function deletePost(post_pk) {
+    console.log("Delete clicked", post_pk);
     if (!confirm("Are you sure you want to delete this post?")) return;
-
-    fetch(`/api-delete-post/${post_pk}`, { method: "POST" })
-        .then(res => {
-            if (!res.ok) throw new Error("Error deleting post");
-            const postDiv = document.getElementById(`post_${post_pk}`);
-            if (postDiv) postDiv.remove();
-        })
-        .catch(err => console.error(err));
+    const postDiv = document.getElementById(`post_${post_pk}`);
+    if (postDiv) postDiv.remove();
 }
 
 // ##############################
@@ -115,3 +132,5 @@ burger.addEventListener("click", () => {
     nav.classList.toggle("active");
     burger.classList.toggle("open");
 });
+
+

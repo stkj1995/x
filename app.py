@@ -355,60 +355,33 @@ def api_create_post():
 #####################
 @app.route("/api-update-post/<post_pk>", methods=["POST"])
 def api_update_post(post_pk):
+    user = session.get("user")
+    if not user:
+        return jsonify({"success": False, "error": "User not logged in"}), 401
+
+    data = request.get_json()
+    if not data or "post_message" not in data:
+        return jsonify({"success": False, "error": "No post_message provided"}), 400
+
+    new_text = data["post_message"]
+
     try:
-        user = session.get("user", "")
-        if not user: return "invalid user"
+        conn, cursor = db()
+        # Only update if this user owns the post
+        cursor.execute(
+            "UPDATE posts SET post_message=%s WHERE post_pk=%s AND post_user_fk=%s",
+            (new_text, post_pk, user["user_pk"])
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        print("DB error:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
 
-        user_pk = user["user_pk"]
 
-        # DEBUG
-        ic("User in session:", user)
-        ic("Post PK to update:", post_pk)
-        ic("Updated post content:", request.form.get("post", ""))
-
-        db, cursor = x.db()
-        # Get existing post
-        cursor.execute("SELECT user_pk FROM posts WHERE post_pk=%s", (post_pk,))
-        row = cursor.fetchone()
-        if not row:
-            return "Post not found", 404
-        if row[0] != user_pk:
-            return "Not authorized", 403
-
-        # Validate new content
-        new_post = x.validate_post(request.form.get("post", ""))
-        cursor.execute("UPDATE posts SET post_message=%s WHERE post_pk=%s", (new_post, post_pk))
-        db.commit()
-
-        # Save a clean user object in session with defaults
-        session["user"] = {
-                "user_pk": user["user_pk"],
-                "user_username": user["user_username"],
-                "user_first_name": user.get("user_first_name", ""),
-                "user_last_name": user.get("user_last_name", ""),
-                "user_avatar_path": user.get("user_avatar_path") or "unknown.jpg"
-            }
-
-        # Re-render updated post
-        tweet = {
-            "user_first_name": user["user_first_name"],
-            "user_last_name": user["user_last_name"],
-            "user_username": user["user_username"],
-            "user_avatar_path": user["user_avatar_path"],
-            "post_message": new_post,
-            "post_pk": post_pk
-        }
-        html_post = render_template("_tweet.html", tweet=tweet, user=user)
-        return f"<browser mix-replace='#post_{post_pk}'>{html_post}</browser>"
-
-    except Exception as ex:
-        if "db" in locals(): db.rollback()
-        toast_error = render_template("___toast_error.html", message="Error updating post")
-        return f"<browser mix-bottom='#toast'>{toast_error}</browser>"
-    finally:
-        if "cursor" in locals(): cursor.close()
-        if "db" in locals(): db.close()
-
+##############################
 @app.route("/api-delete-post/<post_pk>", methods=["POST"])
 def api_delete_post(post_pk):
     try:
