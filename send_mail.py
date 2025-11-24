@@ -40,3 +40,7 @@ def send_verify_email(to_email, user_verification_key):
 
 
     # annsofie was here
+
+
+
+    ######## dette er en branch stkj test
