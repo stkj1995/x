@@ -10,7 +10,8 @@ def send_verify_email(to_email, user_verification_key):
         sender_email = "sophieteinvigkjer@gmail.com"
         password = "twgevqidefiipzwc" # If 2FA is on, use an App Password instead
 
-        # Receiver email address
+        # Receiver email address that isn't connected to a specific email, but
+        # if you signup, you'll get a verification email to that specific email that you've used for the new user.
         receiver_email = "{user_email}"
         
         # Create the email message
