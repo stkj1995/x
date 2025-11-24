@@ -36,3 +36,7 @@ def send_verify_email(to_email, user_verification_key):
         raise_custom_exception("cannot send email", 500)
     finally:
         pass
+
+
+
+    ######## dette er en branch stkj test
