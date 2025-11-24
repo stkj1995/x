@@ -1,6 +1,6 @@
-<article class="post" mix-fade-in="5000">
-    <img src="{{ url_for('static', filename='images/'~(tweet.user_avatar_path if tweet.user_avatar_path else 'unknown.jpg')) }}" alt="Profile Picture" 
-    class="w-8 h-8 rounded-full">
+<article class="post" id="post_{{ tweet.post_pk }}" mix-fade-in="5000">
+    <img src="{{ url_for('static', filename='images/'~(tweet.user_avatar_path if tweet.user_avatar_path else 'unknown.jpg')) }}"
+        alt="Profile Picture" class="w-8 h-8 rounded-full">
     <div class="post-content">
         <div class="post-header">
             <span class="name">
@@ -13,16 +13,21 @@
             {{ tweet.post_message }}
         </p>
         {% if tweet.post_image_path: %}
-        <img src="{{ url_for('static', filename='images/' ~ tweet.post_image_path) }}" alt="Post image" 
-        class="w-80">
+        <img src="{{ url_for('static', filename='images/' ~ tweet.post_image_path) }}" alt="Post image" class="w-80">
         {% endif %}
-        
+
         <div class="post-actions">
             <span class="action"><i class="fa-regular fa-comment"></i> 12</span>
             <span class="action"><i class="fa-solid fa-retweet"></i> 5</span>
             {% include "___button_like_tweet.html" %}
             <span class="action"><i class="fa-solid fa-chart-simple"></i> 230</span>
             <span class="action"><i class="fa-solid fa-share"></i></span>
+
+            <!-- ONLY SHOW EDIT AND DELETE IF USER IS OWNER -->
+            {% if tweet.user_username == user.user_username %}
+            <button onclick="editPost('{{ tweet.post_pk }}', '{{ tweet.post_message|escape }}')">Edit</button>
+            <button onclick="deletePost('{{ tweet.post_pk }}')">Delete</button>
+            {% endif %}
         </div>
     </div>
 </article>

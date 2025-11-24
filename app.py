@@ -325,9 +325,10 @@ def api_create_post():
             "user_username": user["user_username"],
             "user_avatar_path": user["user_avatar_path"],
             "post_message": post,
+            "post_pk": post_pk
         }
         html_post_container = render_template("___post_container.html")
-        html_post = render_template("_tweet.html", tweet=tweet)
+        html_post = render_template("_tweet.html", tweet=tweet, user=user)
         return f"""
             <browser mix-bottom="#toast">{toast_ok}</browser>
             <browser mix-top="#posts">{html_post}</browser>
@@ -349,6 +350,85 @@ def api_create_post():
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()    
+
+
+@app.route("/api-update-post/<post_pk>", methods=["POST"])
+def api_update_post(post_pk):
+    try:
+        user = session.get("user", "")
+        if not user: return "invalid user"
+        user_pk = user["user_pk"]
+
+        db, cursor = x.db()
+        # Get existing post
+        cursor.execute("SELECT user_pk FROM posts WHERE post_pk=%s", (post_pk,))
+        row = cursor.fetchone()
+        if not row:
+            return "Post not found", 404
+        if row[0] != user_pk:
+            return "Not authorized", 403
+
+        # Validate new content
+        new_post = x.validate_post(request.form.get("post", ""))
+        cursor.execute("UPDATE posts SET post_message=%s WHERE post_pk=%s", (new_post, post_pk))
+        db.commit()
+
+        # Re-render updated post
+        tweet = {
+            "user_first_name": user["user_first_name"],
+            "user_last_name": user["user_last_name"],
+            "user_username": user["user_username"],
+            "user_avatar_path": user["user_avatar_path"],
+            "post_message": new_post,
+            "post_pk": post_pk
+        }
+        html_post = render_template("_tweet.html", tweet=tweet, user=user)
+        return f"<browser mix-replace='#post_{post_pk}'>{html_post}</browser>"
+
+    except Exception as ex:
+        if "db" in locals(): db.rollback()
+        toast_error = render_template("___toast_error.html", message="Error updating post")
+        return f"<browser mix-bottom='#toast'>{toast_error}</browser>"
+    finally:
+        if "cursor" in locals(): cursor.close()
+        if "db" in locals(): db.close()
+
+
+@app.route("/api-delete-post/<post_pk>", methods=["POST"])
+def api_delete_post(post_pk):
+    try:
+        user = session.get("user", "")
+        if not user:
+            return "invalid user", 403
+        user_pk = user["user_pk"]
+
+        db, cursor = x.db()
+
+        # Check if post exists and belongs to user
+        cursor.execute("SELECT post_user_fk FROM posts WHERE post_pk=%s", (post_pk,))
+        row = cursor.fetchone()
+        if not row:
+            return "Post not found", 404
+        if row[0] != user_pk:
+            return "Not authorized", 403
+
+        # Delete post
+        cursor.execute("DELETE FROM posts WHERE post_pk=%s", (post_pk,))
+        db.commit()
+
+        # Success toast
+        toast_ok = render_template("___toast_ok.html", message="Post deleted successfully")
+        return f"""
+            <browser mix-bottom="#toast">{toast_ok}</browser>
+            <browser mix-remove="#post_{post_pk}"></browser>
+        """
+    except Exception as ex:
+        if "db" in locals(): db.rollback()
+        toast_error = render_template("___toast_error.html", message="Error deleting post")
+        return f"<browser mix-bottom='#toast'>{toast_error}</browser>", 500
+    finally:
+        if "cursor" in locals(): cursor.close()
+        if "db" in locals(): db.close()
 
 
 
@@ -402,7 +482,9 @@ def api_update_profile():
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
-
+   
+    
+   
 
 
 ##############################
