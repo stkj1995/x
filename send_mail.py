@@ -39,4 +39,4 @@ def send_verify_email(to_email, user_verification_key):
         pass
 
 
-    # annsofie was here
+    # annsofie was here :)))
