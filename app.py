@@ -366,7 +366,7 @@ def api_update_post(post_pk):
     new_text = data["post_message"]
 
     try:
-        conn, cursor = db()
+        conn, cursor = x.db()
         # Only update if this user owns the post
         cursor.execute(
             "UPDATE posts SET post_message=%s WHERE post_pk=%s AND post_user_fk=%s",
