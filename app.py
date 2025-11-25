@@ -580,21 +580,39 @@ def api_follow():
         return jsonify({"success": False, "error": "Not logged in"}), 403
 
     following_pk = request.form.get("following_pk")
+    if not following_pk:
+        return jsonify({"success": False, "error": "Missing following_pk"}), 400
+
     try:
         db, cursor = x.db()
-        follow_pk = uuid.uuid4().hex  # generate a unique PK
+
+        # Prevent duplicates
+        cursor.execute(
+            "SELECT 1 FROM follows WHERE follow_follower_fk=%s AND follow_following_fk=%s LIMIT 1",
+            (user["user_pk"], following_pk)
+        )
+        if cursor.fetchone():
+            return jsonify({"success": True})  # Already following
+
+        follow_pk = uuid.uuid4().hex
+
+        # Insert follow
         cursor.execute(
             "INSERT INTO follows (follow_pk, follow_follower_fk, follow_following_fk) VALUES (%s, %s, %s)",
             (follow_pk, user["user_pk"], following_pk)
         )
+
         db.commit()
         return jsonify({"success": True})
+
     except Exception as e:
         if "db" in locals(): db.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
+
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
+
 
 
 ############################
@@ -605,18 +623,24 @@ def api_unfollow():
         return jsonify({"success": False, "error": "Not logged in"}), 403
 
     following_pk = request.form.get("following_pk")
+    if not following_pk:
+        return jsonify({"success": False, "error": "Missing following_pk"}), 400
+
     try:
         db, cursor = x.db()
+
         cursor.execute(
             "DELETE FROM follows WHERE follow_follower_fk=%s AND follow_following_fk=%s",
             (user["user_pk"], following_pk)
         )
+
         db.commit()
         return jsonify({"success": True})
+
     except Exception as e:
         if "db" in locals(): db.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
+
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
-

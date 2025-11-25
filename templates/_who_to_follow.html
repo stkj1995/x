@@ -25,12 +25,14 @@
     </div>
 
     {# Button shows current follow state #}
-    <button class="px-4 py-1 text-c-white rounded-lg {% if suggestion.user_pk in following_list %}bg-c-gray-500{% else %}bg-c-black{% endif %}"
-            onclick="toggleFollow(this, '{{ suggestion.user_pk }}')">
+    <button
+        class="follow-btn px-4 py-1 text-c-white rounded-lg {% if suggestion.user_pk in following_list %}bg-c-gray-500{% else %}bg-c-black{% endif %}"
+        data-user="{{ suggestion.user_pk }}">
         {% if suggestion.user_pk in following_list %}
-            Unfollow
+        Unfollow
         {% else %}
-            Follow
+        Follow
         {% endif %}
     </button>
+
 </div>

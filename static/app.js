@@ -173,58 +173,44 @@ function get_search_results(url, method, data_source_selector, function_after_fe
 }
 
 // ##############################
-function parse_search_results(data_from_server) {
-    data_from_server = JSON.parse(data_from_server);
-    let users = "";
-    data_from_server.forEach(user => {
-        let user_avatar_path = user.user_avatar_path ? user.user_avatar_path : "unknown.jpg";
-        let html = `
-        <div class="d-flex a-items-center">
-            <img src="${user_avatar_path}" class="w-8 h-8 rounded-full" alt="Profile Picture">
-            <div class="w-full ml-2">
-                <p>
-                    ${user.user_first_name} ${user.user_last_name}
-                    <span class="text-c-gray:+20 text-70">@${user.user_username}</span>
-                </p>
-            </div>
-            <button class="px-4 py-1 text-c-white bg-c-black rounded-lg">Follow</button>
-        </div>`;
-        users += html;
-    });
-    document.querySelector("#search_results").innerHTML = users;
-    document.querySelector("#search_results").classList.remove("d-none");
-}
+document.querySelectorAll(".follow-btn").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+        const button = e.currentTarget;
+        const user_pk = button.dataset.user;
+        const action = button.textContent.trim().toLowerCase() === "follow" ? "follow" : "unfollow";
 
-// ##############################
-function toggleFollow(button, following_pk) {
-    // Decide action based on current button text
-    const action = button.innerText.trim() === "Follow" ? "api-follow" : "api-unfollow";
+        const formData = new FormData();
+        formData.append("following_pk", user_pk);
 
-    fetch(`/${action}`, {
-        method: "POST",
-        body: new URLSearchParams({following_pk}),
-        credentials: "same-origin"
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            // Toggle text
-            if (button.innerText.trim() === "Follow") {
-                button.innerText = "Unfollow";
-                button.classList.remove("bg-c-black");
-                button.classList.add("bg-c-gray-500");
+        try {
+            const res = await fetch(`/api-${action}`, {
+                method: "POST",
+                body: formData,
+                credentials: "same-origin"
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                if (action === "follow") {
+                    // Change button permanently to "Following"
+                    button.textContent = "Following";
+                    button.classList.remove("bg-c-white");
+                    button.classList.add("bg-c-black");
+                } else {
+                    // Change back to Follow
+                    button.textContent = "Follow";
+                    button.classList.remove("bg-c-gray-500");
+                    button.classList.add("bg-c-black");
+                }
             } else {
-                button.innerText = "Follow";
-                button.classList.remove("bg-c-gray-500");
-                button.classList.add("bg-c-black");
+                alert("Error: " + data.error);
             }
-        } else {
-            alert(data.error);
+        } catch (err) {
+            console.error("Follow toggle error:", err);
+            alert("Could not toggle follow. Check console.");
         }
-    })
-    .catch(err => console.error("Follow/Unfollow error:", err));
-}
-
+    });
+});
 
 
 
