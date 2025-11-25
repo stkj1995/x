@@ -17,19 +17,12 @@ async function createPost(formId, postsContainerId) {
         body: formData,
         credentials: "same-origin"
     })
-    .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-    })
-    .then(data => {
-        if (data.success) {
-            // Append new post to DOM
-            container.insertAdjacentHTML("afterbegin", renderPostHTML(data.post));
-            form.reset();
-            console.log("Post created successfully!");
-        } else {
-            alert("Failed to create post: " + data.error);
-        }
+    .then(res => res.text()) // now returning HTML snippet
+    .then(html => {
+        // Insert returned post into DOM
+        container.insertAdjacentHTML("afterbegin", html);
+        form.reset();
+        console.log("Post created successfully!");
     })
     .catch(err => {
         console.error("Create post error:", err);
@@ -37,16 +30,13 @@ async function createPost(formId, postsContainerId) {
     });
 }
 
-// ##############################
-// function editPost(post_pk, currentText) {
-//     const postDiv = document.getElementById(`post_${post_pk}`);
-//     postDiv.innerHTML = `
-//         <textarea id="edit_text_${post_pk}">${currentText}</textarea>
-//         <button onclick="savePost('${post_pk}')">Save</button>
-//         <button onclick="cancelEdit('${post_pk}', '${currentText.replace(/'/g,"\\'")}')">Cancel</button>
-//     `;
-// }
+document.getElementById("post_container").addEventListener("submit", function(e){
+    e.preventDefault();
+    createPost("post_container", "posts");
+});
 
+
+// ##############################
 function editPost(post_pk, currentText) {
     const postDiv = document.getElementById(`post_${post_pk}`);
     postDiv.innerHTML = `
@@ -58,30 +48,6 @@ function editPost(post_pk, currentText) {
 
 
 // ##############################
-// function savePost(post_pk) {
-//     const postDiv = document.getElementById(`post_${post_pk}`);
-//     const newText = document.getElementById(`edit_text_${post_pk}`).value;
-
-//     const formData = new FormData();
-//     formData.append("post_message", newText);
-
-//     fetch(`/api-update-post/${post_pk}`, { method: "POST", body: formData })
-    
-//         .then(res => res.json())
-//         .then(data => {
-//             if (data.success) {
-//                 postDiv.innerHTML = `
-//                     <p class="text">${data.post_message}</p>
-//                     <button onclick="editPost('${post_pk}', \`${data.post_message}\`)">Edit</button>
-//                     <button onclick="deletePost('${post_pk}')">Delete</button>
-//                 `;
-//             } else {
-//                 alert("Failed to save post: " + data.error);
-//             }
-//         })
-//         .catch(err => console.error("Save post error:", err));
-// }
-
 function savePost(post_pk) {
     const postDiv = document.getElementById(`post_${post_pk}`);
     const newText = document.getElementById(`edit_text_${post_pk}`).value;

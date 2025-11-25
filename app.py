@@ -7,11 +7,12 @@ import requests
 import json
 import time
 import uuid
-import os
 import x 
 import dictionary
 import io
 import csv
+import traceback
+from werkzeug.utils import secure_filename
 
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -25,7 +26,25 @@ app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024   # 1 MB
 
 app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
- 
+
+import os
+from werkzeug.utils import secure_filename
+
+# Folder for user-uploaded media
+UPLOAD_FOLDER = 'static/uploads'          # <-- your folder path
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'webm', 'heic'}
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+def allowed_file(filename):
+    """Check if the uploaded file has an allowed extension."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Make sure the folder exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+
 
 ##############################
 ##############################
@@ -304,58 +323,88 @@ def api_like_tweet():
 @app.route("/api-create-post", methods=["POST"])
 def api_create_post():
     try:
-        user = session.get("user", "")
-        if not user: return "invalid user"
+        # -----------------------------
+        # Validate session
+        # -----------------------------
+        user = session.get("user")
+        if not user:
+            return "Invalid user", 403
+        user_pk = user["user_pk"]
 
-        user_pk = user["user_pk"]   
+        # -----------------------------
+        # Get text (optional)
+        # -----------------------------
+        post_text = request.form.get("post", "").strip()
+        if post_text:
+            post_text = x.validate_post(post_text)  # only validate if text exists
 
-        # DEBUG: check session and form data
-        ic("User in session:", user)
-        ic("New post content:", request.form.get("post", ""))
-
-        post = x.validate_post(request.form.get("post", ""))
         post_pk = uuid.uuid4().hex
-        post_image_path = ""
-        db, cursor = x.db()
-        q = """
-        INSERT INTO posts (post_pk, post_user_fk, post_message, post_total_likes, post_image_path)
-        VALUES (%s, %s, %s, %s, %s)
-        """
-        cursor.execute(q, (post_pk, user_pk, post, 0, post_image_path))
+        post_image_path = None
 
+        # -----------------------------
+        # Handle file upload (optional)
+        # -----------------------------
+        file = request.files.get("post_image")
+        if file and allowed_file(file.filename):
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            # Save relative path for templates
+            post_image_path = f"uploads/{filename}"
+        elif file:
+            toast_error = render_template("___toast_error.html", message="File type not allowed")
+            return f"<browser mix-bottom='#toast'>{toast_error}</browser>", 400
+
+        # -----------------------------
+        # Must have at least text or media
+        # -----------------------------
+        if not post_text and not post_image_path:
+            toast_error = render_template("___toast_error.html", message="Cannot post empty content")
+            return f"<browser mix-bottom='#toast'>{toast_error}</browser>", 400
+
+        # -----------------------------
+        # Insert into database
+        # -----------------------------
+        db, cursor = x.db()
+        cursor.execute("""
+            INSERT INTO posts (post_pk, post_user_fk, post_message, post_total_likes, post_image_path)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (post_pk, user_pk, post_text, 0, post_image_path))
         db.commit()
-        toast_ok = render_template("___toast_ok.html", message="The world is reading your post !")
+
+        # -----------------------------
+        # Render HTML for frontend
+        # -----------------------------
+        toast_ok = render_template("___toast_ok.html", message="The world is reading your post!")
         tweet = {
             "user_first_name": user["user_first_name"],
             "user_last_name": user["user_last_name"],
             "user_username": user["user_username"],
             "user_avatar_path": user["user_avatar_path"],
-            "post_message": post,
-            "post_pk": post_pk
+            "post_message": post_text,
+            "post_pk": post_pk,
+            "post_image_path": post_image_path
         }
         html_post_container = render_template("___post_container.html")
         html_post = render_template("_tweet.html", tweet=tweet, user=user)
+
         return f"""
             <browser mix-bottom="#toast">{toast_ok}</browser>
             <browser mix-top="#posts">{html_post}</browser>
             <browser mix-replace="#post_container">{html_post_container}</browser>
         """
+
     except Exception as ex:
-        ic(ex)
         if "db" in locals(): db.rollback()
-
-        # User errors
-        if "x-error post" in str(ex):
-            toast_error = render_template("___toast_error.html", message=f"Post - {x.POST_MIN_LEN} to {x.POST_MAX_LEN} characters")
-            return f"""<browser mix-bottom="#toast">{toast_error}</browser>"""
-
-        # System or developer error
+        import traceback; traceback.print_exc()
         toast_error = render_template("___toast_error.html", message="System under maintenance")
-        return f"""<browser mix-bottom="#toast">{ toast_error }</browser>""", 500
-
+        return f"<browser mix-bottom='#toast'>{toast_error}</browser>", 500
     finally:
         if "cursor" in locals(): cursor.close()
-        if "db" in locals(): db.close()    
+        if "db" in locals(): db.close()
+
+
 
 ##################################
 @app.route("/api-update-post/<post_pk>", methods=["POST"])
