@@ -216,7 +216,7 @@ def verify_account():
         cursor.execute(q, (user_verified_at, user_verification_key))
         db.commit()
         if cursor.rowcount != 1: raise Exception("Invalid key", 400)
-        return redirect( url_for('login') )
+        return redirect(url_for('login', verified="1"))
     except Exception as ex:
         ic(ex)
         if "db" in locals(): db.rollback()
@@ -396,7 +396,7 @@ def api_delete_post(post_pk):
     try:
         user = session.get("user", "")
         if not user:
-            return "invalid user", 403
+            return jsonify({"success": False, "error": "Invalid user"}), 403
         user_pk = user["user_pk"]
 
         db, cursor = x.db()
@@ -405,27 +405,25 @@ def api_delete_post(post_pk):
         cursor.execute("SELECT post_user_fk FROM posts WHERE post_pk=%s", (post_pk,))
         row = cursor.fetchone()
         if not row:
-            return "Post not found", 404
-        if row[0] != user_pk:
-            return "Not authorized", 403
+            return jsonify({"success": False, "error": "Post not found"}), 404
+        if row["post_user_fk"] != user_pk:
+            return jsonify({"success": False, "error": "Not authorized"}), 403
 
         # Delete post
         cursor.execute("DELETE FROM posts WHERE post_pk=%s", (post_pk,))
         db.commit()
 
-        # Success toast
-        toast_ok = render_template("___toast_ok.html", message="Post deleted successfully")
-        return f"""
-            <browser mix-bottom="#toast">{toast_ok}</browser>
-            <browser mix-remove="#post_{post_pk}"></browser>
-        """
+        return jsonify({"success": True, "post_pk": post_pk})
+
     except Exception as ex:
         if "db" in locals(): db.rollback()
-        toast_error = render_template("___toast_error.html", message="Error deleting post")
-        return f"<browser mix-bottom='#toast'>{toast_error}</browser>", 500
+        print("Delete post exception:", ex)   # 🔹 DEBUG: print real error
+        return jsonify({"success": False, "error": "Error deleting post"}), 500
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
+
+
 
 ##############################
 @app.route("/api-update-profile", methods=["POST"])
