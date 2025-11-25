@@ -1,6 +1,8 @@
 <article class="post" id="post_{{ tweet.post_pk }}" mix-fade-in="5000">
-    <img src="{{ url_for('static', filename='images/'~(tweet.user_avatar_path if tweet.user_avatar_path else 'unknown.jpg')) }}"
+    {% set tweet_avatar = tweet.user_avatar_path if tweet.user_avatar_path else 'unknown.jpg' %}
+    <img src="{{ tweet_avatar if tweet_avatar.startswith('http') else url_for('static', filename='images/' + tweet_avatar) }}"
         alt="Profile Picture" class="w-8 h-8 rounded-full">
+
     <div class="post-content">
         <div class="post-header">
             <span class="name">

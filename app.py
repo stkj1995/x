@@ -317,8 +317,12 @@ def api_create_post():
         post_pk = uuid.uuid4().hex
         post_image_path = ""
         db, cursor = x.db()
-        q = "INSERT INTO posts VALUES(%s, %s, %s, %s, %s)"
+        q = """
+        INSERT INTO posts (post_pk, post_user_fk, post_message, post_total_likes, post_image_path)
+        VALUES (%s, %s, %s, %s, %s)
+        """
         cursor.execute(q, (post_pk, user_pk, post, 0, post_image_path))
+
         db.commit()
         toast_ok = render_template("___toast_ok.html", message="The world is reading your post !")
         tweet = {
@@ -353,33 +357,37 @@ def api_create_post():
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()    
 
+
 #####################
 @app.route("/api-update-post/<post_pk>", methods=["POST"])
 def api_update_post(post_pk):
     user = session.get("user")
     if not user:
-        return jsonify({"success": False, "error": "User not logged in"}), 401
+        return jsonify({"success": False, "error": "User not logged in"}), 403
 
-    data = request.get_json()
-    if not data or "post_message" not in data:
-        return jsonify({"success": False, "error": "No post_message provided"}), 400
-
-    new_text = data["post_message"]
+    new_text = request.form.get("post_message", "").strip()
+    if not new_text:
+        return jsonify({"success": False, "error": "No content provided"}), 400
 
     try:
-        conn, cursor = x.db()
-        # Only update if this user owns the post
+        db, cursor = x.db()
         cursor.execute(
             "UPDATE posts SET post_message=%s WHERE post_pk=%s AND post_user_fk=%s",
             (new_text, post_pk, user["user_pk"])
         )
-        conn.commit()
-        cursor.close()
-        conn.close()
-        return jsonify({"success": True})
+        db.commit()
+
+        if cursor.rowcount == 0:
+            # No row updated → wrong post_pk or user is not owner
+            return jsonify({"success": False, "error": "Post not found or not owned by user"}), 404
+
+        return jsonify({"success": True, "post_message": new_text})
     except Exception as e:
-        print("DB error:", e)
+        if "db" in locals(): db.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if "cursor" in locals(): cursor.close()
+        if "db" in locals(): db.close()
 
 
 ##############################

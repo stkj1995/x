@@ -18,42 +18,27 @@ function editPost(post_pk, currentText) {
 }
 
 // ##############################
-async function savePost(post_pk) {
+function savePost(post_pk) {
     const postDiv = document.getElementById(`post_${post_pk}`);
     const newText = document.getElementById(`edit_text_${post_pk}`).value;
 
-    console.log("Saving post:", post_pk, newText);
+    const formData = new FormData();
+    formData.append("post_message", newText);
 
-    // Update the DOM immediately for instant feedback
-    if (postDiv) {
-        postDiv.innerHTML = `
-            <p class="text">${newText}</p>
-            <button onclick="editPost('${post_pk}', \`${newText}\`)">Edit</button>
-            <button onclick="deletePost('${post_pk}')">Delete</button>
-        `;
-    }
-
-    // Send the update to the server
-    try {
-        const response = await fetch(`/api-update-post/${post_pk}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ post_message: newText })
-        });
-
-        const result = await response.json();
-        if (!result.success) {
-            console.error("Server failed to update post:", result.error);
-            alert("Failed to save post on server.");
-            // Optional: revert to previous text if server fails
-        } else {
-            console.log("Post successfully updated on server");
-        }
-    } catch (err) {
-        console.error("Error saving post on server:", err);
-        alert("Error connecting to server.");
-        // Optional: revert to previous text if server fails
-    }
+    fetch(`/api-update-post/${post_pk}`, { method: "POST", body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                postDiv.innerHTML = `
+                    <p class="text">${data.post_message}</p>
+                    <button onclick="editPost('${post_pk}', \`${data.post_message}\`)">Edit</button>
+                    <button onclick="deletePost('${post_pk}')">Delete</button>
+                `;
+            } else {
+                alert("Failed to save post: " + data.error);
+            }
+        })
+        .catch(err => console.error("Save post error:", err));
 }
 
 

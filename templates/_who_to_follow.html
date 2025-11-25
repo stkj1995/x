@@ -1,8 +1,8 @@
 <div class="d-flex a-items-center">
-    <img 
-        src="{{ url_for('static', filename='images/' ~ (suggestion.user_avatar_path if suggestion.user_avatar_path else 'avatar_1.jpg')) }}" 
-        class="w-8 h-8 rounded-full" 
-        alt="Profile Picture">
+    {% set sugg_avatar = suggestion.user_avatar_path if suggestion.user_avatar_path else 'avatar_1.jpg' %}
+    <img src="{{ sugg_avatar if sugg_avatar.startswith('http') else url_for('static', filename='images/' + sugg_avatar) }}"
+        class="w-8 h-8 rounded-full" alt="Profile Picture">
+
     <div class="w-full ml-2">
         <p>
             {{ suggestion.user_first_name }} {{ suggestion.user_last_name }}
