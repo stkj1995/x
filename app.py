@@ -357,8 +357,7 @@ def api_create_post():
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()    
 
-
-#####################
+##################################
 @app.route("/api-update-post/<post_pk>", methods=["POST"])
 def api_update_post(post_pk):
     user = session.get("user")
@@ -371,23 +370,40 @@ def api_update_post(post_pk):
 
     try:
         db, cursor = x.db()
+
+        # Debug: print incoming data
+        print("Session user:", user)
+        print("Updating post_pk:", post_pk)
+        print("New text:", new_text)
+
+        # Check if post exists and belongs to user first
+        cursor.execute("SELECT post_user_fk FROM posts WHERE post_pk=%s", (post_pk,))
+        row = cursor.fetchone()
+        print("DB row:", row)
+
+        if not row:
+            return jsonify({"success": False, "error": "Post not found"}), 404
+        if row["post_user_fk"] != user["user_pk"]:
+            return jsonify({"success": False, "error": "Not authorized"}), 403
+
+        # Now safe to update
         cursor.execute(
             "UPDATE posts SET post_message=%s WHERE post_pk=%s AND post_user_fk=%s",
             (new_text, post_pk, user["user_pk"])
         )
         db.commit()
-
-        if cursor.rowcount == 0:
-            # No row updated → wrong post_pk or user is not owner
-            return jsonify({"success": False, "error": "Post not found or not owned by user"}), 404
+        print("Rows updated:", cursor.rowcount)
 
         return jsonify({"success": True, "post_message": new_text})
+
     except Exception as e:
         if "db" in locals(): db.rollback()
+        print("Error updating post:", e)
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
+
 
 
 ##############################
@@ -555,3 +571,5 @@ def home():  # Function can keep the same name
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+
