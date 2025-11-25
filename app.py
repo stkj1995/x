@@ -572,4 +572,51 @@ def home():  # Function can keep the same name
 if __name__ == "__main__":
     app.run(debug=True)
 
+############################
+@app.route("/api-follow", methods=["POST"])
+def api_follow():
+    user = session.get("user")
+    if not user:
+        return jsonify({"success": False, "error": "Not logged in"}), 403
+
+    following_pk = request.form.get("following_pk")
+    try:
+        db, cursor = x.db()
+        follow_pk = uuid.uuid4().hex  # generate a unique PK
+        cursor.execute(
+            "INSERT INTO follows (follow_pk, follow_follower_fk, follow_following_fk) VALUES (%s, %s, %s)",
+            (follow_pk, user["user_pk"], following_pk)
+        )
+        db.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        if "db" in locals(): db.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if "cursor" in locals(): cursor.close()
+        if "db" in locals(): db.close()
+
+
+############################
+@app.route("/api-unfollow", methods=["POST"])
+def api_unfollow():
+    user = session.get("user")
+    if not user:
+        return jsonify({"success": False, "error": "Not logged in"}), 403
+
+    following_pk = request.form.get("following_pk")
+    try:
+        db, cursor = x.db()
+        cursor.execute(
+            "DELETE FROM follows WHERE follow_follower_fk=%s AND follow_following_fk=%s",
+            (user["user_pk"], following_pk)
+        )
+        db.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        if "db" in locals(): db.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if "cursor" in locals(): cursor.close()
+        if "db" in locals(): db.close()
 

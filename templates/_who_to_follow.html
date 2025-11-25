@@ -1,4 +1,4 @@
-<div class="d-flex a-items-center">
+<!-- <div class="d-flex a-items-center">
     {% set sugg_avatar = suggestion.user_avatar_path if suggestion.user_avatar_path else 'avatar_1.jpg' %}
     <img src="{{ sugg_avatar if sugg_avatar.startswith('http') else url_for('static', filename='images/' + sugg_avatar) }}"
         class="w-8 h-8 rounded-full" alt="Profile Picture">
@@ -10,4 +10,27 @@
         </p>
     </div>
     <button class="px-4 py-1 text-c-white bg-c-black rounded-lg">Follow</button>
+</div> -->
+
+<div class="d-flex a-items-center">
+    {% set sugg_avatar = suggestion.user_avatar_path if suggestion.user_avatar_path else 'avatar_1.jpg' %}
+    <img src="{{ sugg_avatar if sugg_avatar.startswith('http') else url_for('static', filename='images/' + sugg_avatar) }}"
+        class="w-8 h-8 rounded-full" alt="Profile Picture">
+
+    <div class="w-full ml-2">
+        <p>
+            {{ suggestion.user_first_name }} {{ suggestion.user_last_name }}
+            <span class="text-c-gray:+20 text-70">@{{ suggestion.user_username }}</span>
+        </p>
+    </div>
+
+    {# Button shows current follow state #}
+    <button class="px-4 py-1 text-c-white rounded-lg {% if suggestion.user_pk in following_list %}bg-c-gray-500{% else %}bg-c-black{% endif %}"
+            onclick="toggleFollow(this, '{{ suggestion.user_pk }}')">
+        {% if suggestion.user_pk in following_list %}
+            Unfollow
+        {% else %}
+            Follow
+        {% endif %}
+    </button>
 </div>

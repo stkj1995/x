@@ -196,6 +196,39 @@ function parse_search_results(data_from_server) {
 }
 
 // ##############################
+function toggleFollow(button, following_pk) {
+    // Decide action based on current button text
+    const action = button.innerText.trim() === "Follow" ? "api-follow" : "api-unfollow";
+
+    fetch(`/${action}`, {
+        method: "POST",
+        body: new URLSearchParams({following_pk}),
+        credentials: "same-origin"
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            // Toggle text
+            if (button.innerText.trim() === "Follow") {
+                button.innerText = "Unfollow";
+                button.classList.remove("bg-c-black");
+                button.classList.add("bg-c-gray-500");
+            } else {
+                button.innerText = "Follow";
+                button.classList.remove("bg-c-gray-500");
+                button.classList.add("bg-c-black");
+            }
+        } else {
+            alert(data.error);
+        }
+    })
+    .catch(err => console.error("Follow/Unfollow error:", err));
+}
+
+
+
+
+// ##############################
 burger.addEventListener("click", () => {
     nav.classList.toggle("active");
     burger.classList.toggle("open");
