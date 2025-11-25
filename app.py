@@ -12,6 +12,7 @@ import x
 import dictionary
 import io
 import csv
+from datetime import datetime
 
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -183,7 +184,14 @@ def home():
         q = "SELECT * FROM users JOIN posts ON user_pk = post_user_fk ORDER BY RAND() LIMIT 5"
         cursor.execute(q)
         tweets = cursor.fetchall()
-        ic(tweets)
+
+        # attach comments to each post
+        for tweet in tweets:
+            q_comments = "SELECT comment_text, user_first_name, user_last_name FROM comments JOIN users ON user_pk = user_fk WHERE post_fk = %s ORDER BY comment_created_at ASC"
+            cursor.execute(q_comments, (tweet["post_pk"],))
+            tweet["comments"] = cursor.fetchall()
+        
+        ic(tweets[0])
 
         q = "SELECT * FROM trends ORDER BY RAND() LIMIT 3"
         cursor.execute(q)
@@ -253,9 +261,16 @@ def home_comp():
         q = "SELECT * FROM users JOIN posts ON user_pk = post_user_fk ORDER BY RAND() LIMIT 5"
         cursor.execute(q)
         tweets = cursor.fetchall()
-        ic(tweets)
 
-        html = render_template("_home_comp.html", tweets=tweets)
+        # attach comments to each post
+        for tweet in tweets:
+            q_comments = "SELECT comment_text, user_first_name, user_last_name FROM comments JOIN users ON user_pk = user_fk WHERE post_fk = %s ORDER BY comment_created_at ASC"
+            cursor.execute(q_comments, (tweet["post_pk"],))
+            tweet["comments"] = cursor.fetchall()
+
+        ic(tweets[0])
+
+        html = render_template("_home_comp.html", tweets=tweets, user=user)
         return f"""<mixhtml mix-update="main">{ html }</mixhtml>"""
     except Exception as ex:
         ic(ex)
@@ -310,9 +325,12 @@ def api_create_post():
     try:
         user = session.get("user", "")
         if not user: return "invalid user"
-        user_pk = user["user_pk"]        
+        user_pk = user["user_pk"]   
+
         post = x.validate_post(request.form.get("post", ""))
+
         post_pk = uuid.uuid4().hex
+        
         post_image_path = ""
         db, cursor = x.db()
         q = "INSERT INTO posts VALUES(%s, %s, %s, %s, %s)"
@@ -351,6 +369,54 @@ def api_create_post():
         if "db" in locals(): db.close()    
 
 
+##############################
+@app.route("/api-create-comment/<post_fk>", methods=["POST"])
+def api_add_comment(post_fk):
+    try:
+        user = session.get("user", "")
+        if not user:
+            return "invalid user"
+        user_fk = user["user_pk"] 
+
+        comment_text = x.validate_comment(request.form.get("comment_text", ""))
+        
+        comment_pk = uuid.uuid4().hex
+
+        comment_created_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+        db, cursor = x.db()
+        q = "INSERT INTO comments VALUES (%s, %s, %s, %s, %s)"
+        cursor.execute(q, (comment_pk, comment_text, post_fk, user_fk, comment_created_at))
+        db.commit()
+        ##toast_ok = render_template("___toast_ok.html", message="Your comment was posted!")
+        comment = {
+            "user_first_name": user["user_first_name"],
+            "user_last_name": user["user_last_name"],
+            "user_username": user["user_username"],
+            "user_avatar_path": user["user_avatar_path"],
+            "comment_text": comment_text,
+        }
+        ##html_comment_container = render_template("___comment_container.html")
+        ##html_comment = render_template("_comment.html", comment=comment)
+
+        # This will reload the whole page when commenting - will have to fix this later by returning JSON instead
+        return redirect(url_for("home"))
+    
+     ##return f"""
+            ##<browser mix-bottom="#toast">{toast_ok}</browser>
+            ##<browser mix-top="#comments">{html_comment}</browser>
+            ##<browser mix-replace="#post_container">{html_comment_container}</browser>
+        ##"""
+    
+    ## Todo
+    except Exception as ex:
+        ic(ex)
+        return "error"
+    
+    ## Todo
+    finally:
+        if "cursor" in locals(): cursor.close()
+        if "db" in locals(): db.close()    
 
 ##############################
 @app.route("/api-update-profile", methods=["POST"])
