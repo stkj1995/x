@@ -12,7 +12,7 @@ Then just:
 docker compose up --build
 ```
 
-The page should not be available at http://127.0.0.1/home
+The page should now be available at http://127.0.0.1/home
 
 phpMyAdmin is available at http://127.0.0.1:8080/
 
