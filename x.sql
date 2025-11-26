@@ -35,13 +35,23 @@ CREATE TABLE `posts` (
   `post_image_path` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Table structure for table `comments` AND indexing
+--
+
 CREATE TABLE `comments` (
-  `comment_pk` char(32) NOT NULL,
-  `user_fk` char(32) NOT NULL,
-  `post_fk` char(32) NOT NULL,
-  `comment_text` varchar(280) NOT NULL,
-  `comment_created_at` bigint(20) UNSIGNED NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `comment_pk`        char(32)      NOT NULL,
+  `comment_text`      varchar(255)  NOT NULL,
+  `post_fk`           char(32)      NOT NULL,
+  `user_fk`           char(32)      NOT NULL,
+  `comment_created_at` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  
+  PRIMARY KEY (`comment_pk`),
+  KEY `post_fk` (`post_fk`),
+  KEY `user_fk` (`user_fk`)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `posts`
@@ -131,13 +141,6 @@ INSERT INTO `users` (`user_pk`, `user_email`, `user_password`, `user_username`, 
 ALTER TABLE `posts`
   ADD PRIMARY KEY (`post_pk`),
   ADD UNIQUE KEY `post_pk` (`post_pk`);
-
---
--- Indexes for table `comments`
---
-ALTER TABLE `comments`
-  ADD PRIMARY KEY (`comment_pk`),
-  ADD UNIQUE KEY `comment_pk` (`comment_pk`);
 
 --
 -- Indexes for table `trends`
