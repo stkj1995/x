@@ -69,7 +69,7 @@ def global_variables():
         x = x
     )
 
-##############################
+# LOGIN #############################
 @app.route("/login", methods=["GET", "POST"])
 @app.route("/login/<lan>", methods=["GET", "POST"])
 @x.no_cache
@@ -131,7 +131,7 @@ def login(lan = "english"):
             if "cursor" in locals(): cursor.close()
             if "db" in locals(): db.close()
 
-##############################
+# SIGNUP #############################
 @app.route("/signup", methods=["GET", "POST"])
 @app.route("/signup/<lan>", methods=["GET", "POST"])
 def signup(lan="english"):
@@ -195,7 +195,7 @@ def signup(lan="english"):
             if "db" in locals(): db.close()
 
 
-##############################
+# HOME #############################
 @app.get("/home")
 @x.no_cache
 def home():
@@ -227,7 +227,7 @@ def home():
         if "db" in locals(): db.close()
 
 
-##############################
+# VERIFY ACCOUNT #############################
 @app.route("/verify-account", methods=["GET"])
 def verify_account():
     try:
@@ -264,7 +264,7 @@ def logout():
     finally:
         pass
 
-##############################
+# HOME COMP #############################
 @app.get("/home-comp")
 def home_comp():
     try:
@@ -292,7 +292,7 @@ def home_comp():
     finally:
         pass
 
-##############################
+# PROFILE #############################
 @app.get("/profile")
 def profile():
     try:
@@ -310,7 +310,7 @@ def profile():
     finally:
         pass
 
-##############################
+# LIKE TWEET #############################
 @app.patch("/like-tweet")
 @x.no_cache
 def api_like_tweet():
@@ -329,7 +329,7 @@ def api_like_tweet():
         # if "db" in locals(): db.close()
         pass
 
-##############################
+# API CREATE POST #############################
 @app.route("/api-create-post", methods=["POST"])
 def api_create_post():
     try:
@@ -416,7 +416,7 @@ def api_create_post():
 
 
 
-##################################
+# API UPDATE POST ################################
 @app.route("/api-update-post/<post_pk>", methods=["POST"])
 def api_update_post(post_pk):
     user = session.get("user")
@@ -464,7 +464,7 @@ def api_update_post(post_pk):
         if "db" in locals(): db.close()
 
 
-##############################
+# API DELETE POST #############################
 @app.route("/api-delete-post/<post_pk>", methods=["POST"])
 def api_delete_post(post_pk):
     try:
@@ -498,7 +498,7 @@ def api_delete_post(post_pk):
         if "db" in locals(): db.close()
 
 
-##############################
+# API CREATE POST #############################
 @app.route("/api-create-comment/<post_fk>", methods=["POST"])
 def api_create_comment(post_fk):
     try:
@@ -550,7 +550,7 @@ def api_create_comment(post_fk):
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()    
 
-##############################
+# API UPDATE PROFILE #############################
 @app.route("/api-update-profile", methods=["POST"])
 def api_update_profile():
 
@@ -602,7 +602,7 @@ def api_update_profile():
         if "db" in locals(): db.close()
 
 
-##############################
+# API SEARCH #############################
 @app.post("/api-search")
 def api_search():
     try:
@@ -701,7 +701,7 @@ def home():  # Function can keep the same name
 if __name__ == "__main__":
     app.run(debug=True)
 
-############################
+# API FOLLOW ###########################
 @app.route("/api-follow", methods=["POST"])
 def api_follow():
     user = session.get("user")
@@ -744,7 +744,7 @@ def api_follow():
 
 
 
-############################
+# API UNFOLLOW ###########################
 @app.route("/api-unfollow", methods=["POST"])
 def api_unfollow():
     user = session.get("user")
