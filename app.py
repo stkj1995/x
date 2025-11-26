@@ -109,9 +109,9 @@ def login(lan = "english"):
 ##############################
 @app.route("/signup", methods=["GET", "POST"])
 @app.route("/signup/<lan>", methods=["GET", "POST"])
-def signup(lan = "english"):
+def signup(lan="english"):
 
-    if lan not in x.allowed_languages: lan = "english"
+    if lan not in x.allowed_languages:lan = "english"
     x.default_language = lan
 
     if request.method == "GET":
@@ -351,6 +351,8 @@ def api_create_post():
         if "db" in locals(): db.close()    
 
 
+##############################
+
 
 ##############################
 @app.route("/api-update-profile", methods=["POST"])
@@ -415,13 +417,30 @@ def api_search():
         part_of_query = f"%{search_for}%"
         ic(search_for)
         db, cursor = x.db()
-        q = "SELECT * FROM users WHERE user_username LIKE %s"
-        cursor.execute(q, (part_of_query,))
+
+        q_users = "SELECT * FROM users WHERE user_username LIKE %s"
+        cursor.execute(q_users, (part_of_query,))
         users = cursor.fetchall()
-        return jsonify(users)
+
+        q_firstnames = "SELECT * FROM users WHERE user_first_name LIKE %s"
+        cursor.execute(q_firstnames, (part_of_query,))
+        users = cursor.fetchall()
+
+        q_posts = "SELECT * FROM posts WHERE post_message LIKE %s"
+        cursor.execute(q_posts, (part_of_query,))
+        posts = cursor.fetchall()
+
+        return jsonify({
+            "users": users,
+            "user_first_name": user_first_name,
+            "posts": posts
+        })
+    
+
     except Exception as ex:
         ic(ex)
         return str(ex)
+    
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
@@ -486,3 +505,35 @@ def home():  # Function can keep the same name
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+
+
+# # Block / unblock
+# @app.route("/")
+# def index():
+#     return render_template("index.html", blocked_users=blocked_users)
+
+# @app.route("/block", methods=["POST"])
+# def block_user():
+#     username = request.form["username"]
+#     blocked_users.add(username)
+#     return redirect ("/")
+
+# @app.route("/unblock", methods=["POST"])
+# def unblock_user():
+#     username = request.form["username"]
+#     blocked_users.pop(username, None)
+#     return redirect ("/")
+
+# # To send a mail when a user is blocked
+# def send_block_email(user_email, blocked_by)
+#     msg = MIMEText(f"You have been blocked by {blocked_by}. If you believe this is a mistake, please contact support.")
+#     msg = ["Subject"] = "You have been blocked"
+#     msg = ["From"] = "your_email"
+#     msg = ["To"] = user_email
+
+#     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+#         server.login("your-email@example.com", "YOUR_APP_PASSWORD")
+#         server.send_message(msg)
+
+

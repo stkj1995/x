@@ -20,6 +20,7 @@
         <span>User first name</span> - {{ x.USER_FIRST_NAME_MIN }} to {{ x.USER_FIRST_NAME_MAX }} characters
         </label>
         <input name="user_first_name" id="user_first_name" type="text" mix-check="{{ x.REGEX_USER_USERNAME }}" value="{{ user.user_first_name }}">
+        <input name="user_avatar_path" id="user_avatar_path" type="text" mix-check="{{}}"
     </div>            
     <button class="x-dialog__btn" 
     mix-default="Update profile" 

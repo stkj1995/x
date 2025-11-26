@@ -64,3 +64,18 @@ burger.addEventListener("click", () => {
   // toggle icon
   burger.classList.toggle("open");
 });
+
+
+
+// Follow button that changes on click
+const followBtn = document.getElementById("follow-btn");
+
+followBtn.addEventListener("click", () => {
+  if (followBtn.textContent === "Follow") {
+    followBtn.textContent = "Unfollow";
+    followBtn.style.backgroundColor = "Blue"; // red for unfollow
+  } else {
+    followBtn.textContent = "Follow";
+    followBtn.style.backgroundColor = "#000000"; // black for follow
+  }
+});
