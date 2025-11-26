@@ -504,8 +504,6 @@ def api_delete_post(post_pk):
         if "db" in locals(): db.close()
 
 
-##############################
-
 
 ##############################
 @app.route("/api-delete-post/<post_pk>", methods=["POST"])
