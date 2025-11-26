@@ -206,14 +206,7 @@ def home():
         q = "SELECT * FROM users JOIN posts ON user_pk = post_user_fk ORDER BY RAND() LIMIT 5"
         cursor.execute(q)
         tweets = cursor.fetchall()
-
-        # attach comments to each post
-        for tweet in tweets:
-            q_comments = "SELECT comment_text, user_first_name, user_last_name FROM comments JOIN users ON user_pk = user_fk WHERE post_fk = %s ORDER BY comment_created_at ASC"
-            cursor.execute(q_comments, (tweet["post_pk"],))
-            tweet["comments"] = cursor.fetchall()
-        
-        ic(tweets[0])
+        ic(tweets)
 
         q = "SELECT * FROM trends ORDER BY RAND() LIMIT 3"
         cursor.execute(q)
@@ -232,6 +225,7 @@ def home():
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
+
 
 ##############################
 @app.route("/verify-account", methods=["GET"])
