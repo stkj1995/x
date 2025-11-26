@@ -386,7 +386,7 @@ def api_create_comment(post_fk):
 
         db, cursor = x.db()
         cursor.execute(
-            "INSERT INTO comments (pk, text, post_fk, user_fk, created_at) VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO comments (comment_pk, comment_text, post_fk, user_fk, comment_created_at) VALUES (%s, %s, %s, %s, %s)",
             (comment_pk, comment_text, post_fk, user_fk, comment_created_at)
         )
         db.commit()
