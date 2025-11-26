@@ -611,31 +611,32 @@ def api_update_profile():
 @app.post("/api-search")
 def api_search():
     try:
-        # TODO: The input search_for must be validated
         search_for = request.form.get("search_for", "")
-        if not search_for: return """empty search field""", 400
+        if not search_for: 
+            return "empty search field", 400
+
         part_of_query = f"%{search_for}%"
         ic(search_for)
+
         db, cursor = x.db()
 
-        q_users = "SELECT * FROM users WHERE user_username LIKE %s"
-        cursor.execute(q_users, (part_of_query,))
+        # Search users by username or first name
+        q_users = """
+        SELECT * FROM users 
+        WHERE user_username LIKE %s OR user_first_name LIKE %s
+        """
+        cursor.execute(q_users, (part_of_query, part_of_query))
         users = cursor.fetchall()
 
-        q_firstnames = "SELECT * FROM users WHERE user_first_name LIKE %s"
-        cursor.execute(q_firstnames, (part_of_query,))
-        users = cursor.fetchall()
-
+        # Search posts
         q_posts = "SELECT * FROM posts WHERE post_message LIKE %s"
         cursor.execute(q_posts, (part_of_query,))
         posts = cursor.fetchall()
 
         return jsonify({
             "users": users,
-            "user_first_name": user_first_name,
             "posts": posts
         })
-    
 
     except Exception as ex:
         ic(ex)
@@ -644,6 +645,7 @@ def api_search():
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
+
 
 ##############################
 @app.get("/get-data-from-sheet")
