@@ -21,6 +21,7 @@ from icecream import ic
 ic.configureOutput(prefix=f'----- | ', includeContext=True)
 
 app = Flask(__name__)
+app.config["DEBUG"] = True
 
 # Set the maximum file size to 10 MB
 app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024   # 1 MB
@@ -205,14 +206,7 @@ def home():
         q = "SELECT * FROM users JOIN posts ON user_pk = post_user_fk ORDER BY RAND() LIMIT 5"
         cursor.execute(q)
         tweets = cursor.fetchall()
-
-        # attach comments to each post
-        for tweet in tweets:
-            q_comments = "SELECT comment_text, user_first_name, user_last_name FROM comments JOIN users ON user_pk = user_fk WHERE post_fk = %s ORDER BY comment_created_at ASC"
-            cursor.execute(q_comments, (tweet["post_pk"],))
-            tweet["comments"] = cursor.fetchall()
-        
-        ic(tweets[0])
+        ic(tweets)
 
         q = "SELECT * FROM trends ORDER BY RAND() LIMIT 3"
         cursor.execute(q)
@@ -231,6 +225,7 @@ def home():
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
+
 
 ##############################
 @app.route("/verify-account", methods=["GET"])
@@ -469,42 +464,6 @@ def api_update_post(post_pk):
         if "db" in locals(): db.close()
 
 
-
-##############################
-@app.route("/api-delete-post/<post_pk>", methods=["POST"])
-def api_delete_post(post_pk):
-    try:
-        user = session.get("user", "")
-        if not user:
-            return jsonify({"success": False, "error": "Invalid user"}), 403
-        user_pk = user["user_pk"]
-
-        db, cursor = x.db()
-
-        # Check if post exists and belongs to user
-        cursor.execute("SELECT post_user_fk FROM posts WHERE post_pk=%s", (post_pk,))
-        row = cursor.fetchone()
-        if not row:
-            return jsonify({"success": False, "error": "Post not found"}), 404
-        if row["post_user_fk"] != user_pk:
-            return jsonify({"success": False, "error": "Not authorized"}), 403
-
-        # Delete post
-        cursor.execute("DELETE FROM posts WHERE post_pk=%s", (post_pk,))
-        db.commit()
-
-        return jsonify({"success": True, "post_pk": post_pk})
-
-    except Exception as ex:
-        if "db" in locals(): db.rollback()
-        print("Delete post exception:", ex)   # 🔹 DEBUG: print real error
-        return jsonify({"success": False, "error": "Error deleting post"}), 500
-    finally:
-        if "cursor" in locals(): cursor.close()
-        if "db" in locals(): db.close()
-
-
-
 ##############################
 @app.route("/api-delete-post/<post_pk>", methods=["POST"])
 def api_delete_post(post_pk):
@@ -598,7 +557,7 @@ def api_update_profile():
     try:
 
         user = session.get("user", "")
-        if not user: return "invalid user"
+        if not user: return "invalid user", 400
 
         # Validate
         user_email = x.validate_user_email()
@@ -610,6 +569,32 @@ def api_update_profile():
         db, cursor = x.db()
         cursor.execute(q, (user_email, user_username, user_first_name, user["user_pk"]))
         db.commit()
+
+        # Handle avatar upload
+        avatar = request.files.get("avatar")
+        if avatar:
+            
+            if avatar.mimetype not in ["image/png", "image/jpeg"]:
+                toast_err = render_template("_profile.html", message="Only PNG or jpeg is allowed")
+                return f'<browser mix-bottom="#toast">{toast_err}</browser>', 400
+            
+            ext = avatar.filename.split(".")[-1]
+            filename = f"user_{user['user_pk']}_avatar.{ext}"
+            filepath = os.path.join("static/avatars", filename)
+            avatar.save(filepath)
+
+            q = "UPDATE users SET user_avatar_path = %s WHERE user_pk = %s"
+            cursor.execute(q, (filename, user ["user_pk"]))
+            db.commit()
+
+            user["user_avatar_path"] = filename
+            session["user"] = user
+
+            avatar_html = render_template("_profile.html", user_avatar_path=filename)
+            avatar_update = f'<browser mix-update="#avatar-section">{avatar_html}</browser>'
+
+        else:
+            avatar_update: ""
 
         # Response to the browser
         toast_ok = render_template("___toast_ok.html", message="Profile updated successfully")
@@ -646,31 +631,32 @@ def api_update_profile():
 @app.post("/api-search")
 def api_search():
     try:
-        # TODO: The input search_for must be validated
         search_for = request.form.get("search_for", "")
-        if not search_for: return """empty search field""", 400
+        if not search_for: 
+            return "empty search field", 400
+
         part_of_query = f"%{search_for}%"
         ic(search_for)
+
         db, cursor = x.db()
 
-        q_users = "SELECT * FROM users WHERE user_username LIKE %s"
-        cursor.execute(q_users, (part_of_query,))
+        # Search users by username or first name
+        q_users = """
+        SELECT * FROM users 
+        WHERE user_username LIKE %s OR user_first_name LIKE %s
+        """
+        cursor.execute(q_users, (part_of_query, part_of_query))
         users = cursor.fetchall()
 
-        q_firstnames = "SELECT * FROM users WHERE user_first_name LIKE %s"
-        cursor.execute(q_firstnames, (part_of_query,))
-        users = cursor.fetchall()
-
+        # Search posts
         q_posts = "SELECT * FROM posts WHERE post_message LIKE %s"
         cursor.execute(q_posts, (part_of_query,))
         posts = cursor.fetchall()
 
         return jsonify({
             "users": users,
-            "user_first_name": user_first_name,
             "posts": posts
         })
-    
 
     except Exception as ex:
         ic(ex)
@@ -679,6 +665,7 @@ def api_search():
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
+
 
 ##############################
 @app.get("/get-data-from-sheet")
