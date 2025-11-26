@@ -7,8 +7,8 @@ def send_verify_email(to_email, user_verification_key):
         # Copy the key
 
         # Email and password of the sender's Gmail account
-        sender_email = "sophieteinvigkjer@gmail.com"
-        password = "twgevqidefiipzwc" # If 2FA is on, use an App Password instead
+        sender_email = "marielouisephilipsen@gmail.com"
+        password = "riariqmzlacvjpkz" # If 2FA is on, use an App Password instead
 
         # Receiver email address that isn't connected to a specific email, but
         # if you signup, you'll get a verification email to that specific email that you've used for the new user.
@@ -21,7 +21,9 @@ def send_verify_email(to_email, user_verification_key):
         message["Subject"] = "Please verify your account"
 
         # Body of the email
-        body = f"""To verify your account, please <a href="http://127.0.0.1/verify/{user_verification_key}">click here</a>"""
+        body = f"""
+        <h1 style="font-family: avenir, san-serif">To verify your account, please</h1> 
+        <a href="http://127.0.0.1/verify/{user_verification_key}">click here</a>"""
         message.attach(MIMEText(body, "html"))
 
         # Connect to Gmail's SMTP server and send the email

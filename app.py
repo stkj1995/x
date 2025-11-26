@@ -504,6 +504,8 @@ def api_delete_post(post_pk):
         if "db" in locals(): db.close()
 
 
+##############################
+
 
 ##############################
 @app.route("/api-delete-post/<post_pk>", methods=["POST"])
@@ -652,13 +654,30 @@ def api_search():
         part_of_query = f"%{search_for}%"
         ic(search_for)
         db, cursor = x.db()
-        q = "SELECT * FROM users WHERE user_username LIKE %s"
-        cursor.execute(q, (part_of_query,))
+
+        q_users = "SELECT * FROM users WHERE user_username LIKE %s"
+        cursor.execute(q_users, (part_of_query,))
         users = cursor.fetchall()
-        return jsonify(users)
+
+        q_firstnames = "SELECT * FROM users WHERE user_first_name LIKE %s"
+        cursor.execute(q_firstnames, (part_of_query,))
+        users = cursor.fetchall()
+
+        q_posts = "SELECT * FROM posts WHERE post_message LIKE %s"
+        cursor.execute(q_posts, (part_of_query,))
+        posts = cursor.fetchall()
+
+        return jsonify({
+            "users": users,
+            "user_first_name": user_first_name,
+            "posts": posts
+        })
+    
+
     except Exception as ex:
         ic(ex)
         return str(ex)
+    
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
