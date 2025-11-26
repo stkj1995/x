@@ -21,6 +21,7 @@ from icecream import ic
 ic.configureOutput(prefix=f'----- | ', includeContext=True)
 
 app = Flask(__name__)
+app.config["DEBUG"] = True
 
 # Set the maximum file size to 10 MB
 app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024   # 1 MB
@@ -467,42 +468,6 @@ def api_update_post(post_pk):
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
-
-
-
-##############################
-@app.route("/api-delete-post/<post_pk>", methods=["POST"])
-def api_delete_post(post_pk):
-    try:
-        user = session.get("user", "")
-        if not user:
-            return jsonify({"success": False, "error": "Invalid user"}), 403
-        user_pk = user["user_pk"]
-
-        db, cursor = x.db()
-
-        # Check if post exists and belongs to user
-        cursor.execute("SELECT post_user_fk FROM posts WHERE post_pk=%s", (post_pk,))
-        row = cursor.fetchone()
-        if not row:
-            return jsonify({"success": False, "error": "Post not found"}), 404
-        if row["post_user_fk"] != user_pk:
-            return jsonify({"success": False, "error": "Not authorized"}), 403
-
-        # Delete post
-        cursor.execute("DELETE FROM posts WHERE post_pk=%s", (post_pk,))
-        db.commit()
-
-        return jsonify({"success": True, "post_pk": post_pk})
-
-    except Exception as ex:
-        if "db" in locals(): db.rollback()
-        print("Delete post exception:", ex)   # 🔹 DEBUG: print real error
-        return jsonify({"success": False, "error": "Error deleting post"}), 500
-    finally:
-        if "cursor" in locals(): cursor.close()
-        if "db" in locals(): db.close()
-
 
 
 ##############################
