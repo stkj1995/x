@@ -127,6 +127,15 @@ def validate_user_first_name():
     if not re.match(REGEX_USER_FIRST_NAME, user_first_name): raise Exception(error, 400)
     return user_first_name
 
+##############################
+USER_LAST_NAME_MIN = 2
+USER_LAST_NAME_MAX = 20
+REGEX_USER_LAST_NAME = f"^.{{{USER_LAST_NAME_MIN},{USER_LAST_NAME_MAX}}}$"
+def validate_user_last_name():
+    user_last_name = request.form.get("user_last_name", "").strip()
+    error = f"last name min {USER_LAST_NAME_MIN} max {USER_LAST_NAME_MAX} characters"
+    if not re.match(REGEX_USER_LAST_NAME, user_last_name): raise Exception(error, 400)
+    return user_last_name
 
 ##############################
 USER_PASSWORD_MIN = 6
@@ -173,6 +182,17 @@ def validate_post(post = ""):
     post = post.strip()
     if not re.match(REGEX_POST, post): raise Exception("x-error post", 400)
     return post
+
+##############################
+COMMENT_MIN_LEN = 1
+COMMENT_MAX_LEN = 250
+REGEX_COMMENT = f"^.{{{COMMENT_MIN_LEN},{COMMENT_MAX_LEN}}}$"
+
+def validate_comment(comment=""):
+    comment = comment.strip()
+    if not re.match(REGEX_COMMENT, comment):
+        raise Exception("x-error comment", 400)
+    return comment
 
 
 ##############################

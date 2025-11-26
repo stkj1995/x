@@ -44,8 +44,21 @@ function editPost(post_pk, currentText) {
         <button onclick="savePost('${post_pk}')">Save</button>
         <button onclick="cancelEdit('${post_pk}', '${currentText.replace(/'/g,"\\'")}')">Cancel</button>
     `;
+async function server(url, method, data_source_selector, function_after_fetch) {
+  let conn = null;
+  if (method.toUpperCase() == "POST") {
+    const data_source = document.querySelector(data_source_selector);
+    conn = await fetch(url, {
+      method: method,
+      body: new FormData(data_source),
+    });
+  }
+  const data_from_server = await conn.text();
+  if (!conn) {
+    console.log("error connecting to the server");
+  }
+  window[function_after_fetch](data_from_server);
 }
-
 
 // ##############################
 function savePost(post_pk) {
@@ -89,6 +102,21 @@ function cancelEdit(post_pk, originalText) {
     }
 }
 
+function get_search_results(
+  url,
+  method,
+  data_source_selector,
+  function_after_fetch
+) {
+  const txt_search_for = document.querySelector("#txt_search_for");
+  if (txt_search_for.value == "") {
+    console.log("empty search");
+    document.querySelector("#search_results").innerHTML = "";
+    document.querySelector("#search_results").classList.add("d-none");
+    return false;
+  }
+  server(url, method, data_source_selector, function_after_fetch);
+}
 // ##############################
 function deletePost(post_pk) {
     console.log("Delete clicked", post_pk);
