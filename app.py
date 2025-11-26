@@ -497,7 +497,7 @@ def api_update_profile():
     try:
 
         user = session.get("user", "")
-        if not user: return "invalid user"
+        if not user: return "invalid user", 400
 
         # Validate
         user_email = x.validate_user_email()
@@ -509,6 +509,32 @@ def api_update_profile():
         db, cursor = x.db()
         cursor.execute(q, (user_email, user_username, user_first_name, user["user_pk"]))
         db.commit()
+
+        # Handle avatar upload
+        avatar = request.files.get("avatar")
+        if avatar:
+            
+            if avatar.mimetype not in ["image/png", "image/jpeg"]:
+                toast_err = render_template("_profile.html", message="Only PNG or jpeg is allowed")
+                return f'<browser mix-bottom="#toast">{toast_err}</browser>', 400
+            
+            ext = avatar.filename.split(".")[-1]
+            filename = f"user_{user['user_pk']}_avatar.{ext}"
+            filepath = os.path.join("static/avatars", filename)
+            avatar.save(filepath)
+
+            q = "UPDATE users SET user_avatar_path = %s WHERE user_pk = %s"
+            cursor.execute(q, (filename, user ["user_pk"]))
+            db.commit()
+
+            user["user_avatar_path"] = filename
+            session["user"] = user
+
+            avatar_html = render_template("_profile.html", user_avatar_path=filename)
+            avatar_update = f'<browser mix-update="#avatar-section">{avatar_html}</browser>'
+
+        else:
+            avatar_update: ""
 
         # Response to the browser
         toast_ok = render_template("___toast_ok.html", message="Profile updated successfully")
