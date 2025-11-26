@@ -32,12 +32,11 @@
     </div>
     <!-- comment section form - should make it a micro component later so that it doesn't reload this whole page -->
     <!-- mix-post makes an AJAX request instead of a full page submit... I guess? -->
+
     <div class="comment-section">
       <form
-        action="{{ url_for('api_create_comment', post_pk=tweet.post_pk) }}"
+        action="{{ url_for('api_create_comment', post_fk=tweet.post_pk) }}"
         method="POST"
-        autocomplete="off"
-        mix-post
       >
         <textarea
           name="comment_text"
@@ -49,11 +48,13 @@
           class="x-dialog__btn"
           mix-default="Post comment"
           mix-await="Posting..."
+          type="submit"
         >
           Post comment
         </button>
       </form>
     </div>
+
     <!-- end of comment section form -->
   </div>
 </article>

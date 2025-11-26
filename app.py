@@ -371,7 +371,7 @@ def api_create_post():
 
 ##############################
 @app.route("/api-create-comment/<post_fk>", methods=["POST"])
-def api_add_comment(post_fk):
+def api_create_comment(post_fk):
     try:
         user = session.get("user", "")
         if not user:
@@ -385,8 +385,10 @@ def api_add_comment(post_fk):
         comment_created_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
         db, cursor = x.db()
-        q = "INSERT INTO comments VALUES (%s, %s, %s, %s, %s)"
-        cursor.execute(q, (comment_pk, comment_text, post_fk, user_fk, comment_created_at))
+        cursor.execute(
+            "INSERT INTO comments (pk, text, post_fk, user_fk, created_at) VALUES (%s, %s, %s, %s, %s)",
+            (comment_pk, comment_text, post_fk, user_fk, comment_created_at)
+        )
         db.commit()
         ##toast_ok = render_template("___toast_ok.html", message="Your comment was posted!")
         comment = {
@@ -400,7 +402,8 @@ def api_add_comment(post_fk):
         ##html_comment = render_template("_comment.html", comment=comment)
 
         # This will reload the whole page when commenting - will have to fix this later by returning JSON instead
-        return redirect(url_for("home"))
+        return {"status": "ok"}
+        ##return redirect(url_for("home"))
     
      ##return f"""
             ##<browser mix-bottom="#toast">{toast_ok}</browser>
