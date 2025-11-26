@@ -7,12 +7,13 @@ import requests
 import json
 import time
 import uuid
-import os
 import x 
 import dictionary
 import io
 import csv
-from datetime import datetime
+import traceback
+from werkzeug.utils import secure_filename
+import datetime
 
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -20,13 +21,32 @@ from icecream import ic
 ic.configureOutput(prefix=f'----- | ', includeContext=True)
 
 app = Flask(__name__)
+app.config["DEBUG"] = True
 
 # Set the maximum file size to 10 MB
 app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024   # 1 MB
 
 app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
- 
+
+import os
+from werkzeug.utils import secure_filename
+
+# Folder for user-uploaded media
+UPLOAD_FOLDER = 'static/uploads'          # <-- your folder path
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'webm', 'heic'}
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+def allowed_file(filename):
+    """Check if the uploaded file has an allowed extension."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Make sure the folder exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+
 
 ##############################
 ##############################
@@ -49,8 +69,7 @@ def global_variables():
         x = x
     )
 
-
-##############################
+# LOGIN #############################
 @app.route("/login", methods=["GET", "POST"])
 @app.route("/login/<lan>", methods=["GET", "POST"])
 @x.no_cache
@@ -83,9 +102,17 @@ def login(lan = "english"):
             
             ic("user_verification_key:", user["user_verification_key"])
 
-            user.pop("user_password")
+           # Remove the password from the user dict
+            user.pop("user_password", None)  # safe pop in case it's missing
 
-            session["user"] = user
+            # Save a clean user object in session with defaults
+            session["user"] = {
+                "user_pk": user["user_pk"],
+                "user_username": user["user_username"],
+                "user_first_name": user.get("user_first_name", ""),
+                "user_last_name": user.get("user_last_name", ""),
+                "user_avatar_path": user.get("user_avatar_path") or "unknown.jpg"
+            }
             return f"""<browser mix-redirect="/home"></browser>"""
 
         except Exception as ex:
@@ -104,15 +131,12 @@ def login(lan = "english"):
             if "cursor" in locals(): cursor.close()
             if "db" in locals(): db.close()
 
-
-
-
-##############################
+# SIGNUP #############################
 @app.route("/signup", methods=["GET", "POST"])
 @app.route("/signup/<lan>", methods=["GET", "POST"])
-def signup(lan = "english"):
-
-    if lan not in x.allowed_languages: lan = "english"
+def signup(lan="english"):
+    if lan not in x.allowed_languages:
+        lan = "english"
     x.default_language = lan
 
     if request.method == "GET":
@@ -120,7 +144,7 @@ def signup(lan = "english"):
 
     if request.method == "POST":
         try:
-            # Validate
+            # Validate input
             user_email = x.validate_user_email()
             user_password = x.validate_user_password()
             user_username = x.validate_user_username()
@@ -131,49 +155,47 @@ def signup(lan = "english"):
             user_avatar_path = "https://avatar.iran.liara.run/public/40"
             user_verification_key = uuid.uuid4().hex
             user_verified_at = 0
-
             user_hashed_password = generate_password_hash(user_password)
 
-            # Connect to the database
-            q = "INSERT INTO users VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            # Save to DB
             db, cursor = x.db()
-            cursor.execute(q, (user_pk, user_email, user_hashed_password, user_username, 
-            user_first_name, user_last_name, user_avatar_path, user_verification_key, user_verified_at))
+            cursor.execute(
+                "INSERT INTO users VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (
+                    user_pk, user_email, user_hashed_password, user_username,
+                    user_first_name, user_last_name, user_avatar_path,
+                    user_verification_key, user_verified_at
+                )
+            )
             db.commit()
 
-            # send verification email
-            email_verify_account = render_template("_email_verify_account.html", user_verification_key=user_verification_key)
-            ic(email_verify_account)
-            x.send_email(user_email, "Verify your account", email_verify_account)
+            # Send verification email
+            email_content = render_template("_email_verify_account.html", key=user_verification_key)
+            x.send_email(user_email, "Verify your account", email_content)
 
-            return f"""<mixhtml mix-redirect="{ url_for('login') }"></mixhtml>""", 400
+            return f"""<mixhtml mix-redirect="{ url_for('login') }"></mixhtml>"""
+
         except Exception as ex:
-            ic(ex)
-            # User errors
-            if ex.args[1] == 400:
-                toast_error = render_template("___toast_error.html", message=ex.args[0])
-                return f"""<mixhtml mix-update="#toast">{ toast_error }</mixhtml>""", 400
-            
-            # Database errors
-            if "Duplicate entry" and user_email in str(ex): 
-                toast_error = render_template("___toast_error.html", message="Email already registered")
-                return f"""<mixhtml mix-update="#toast">{ toast_error }</mixhtml>""", 400
-            if "Duplicate entry" and user_username in str(ex): 
-                toast_error = render_template("___toast_error.html", message="Username already registered")
-                return f"""<mixhtml mix-update="#toast">{ toast_error }</mixhtml>""", 400
-            
-            # System or developer error
-            toast_error = render_template("___toast_error.html", message="System under maintenance")
-            return f"""<mixhtml mix-bottom="#toast">{ toast_error }</mixhtml>""", 500
+            msg = str(ex)
+            if "Duplicate entry" in msg:
+                if user_email in msg:
+                    toast_msg = "Email already registered"
+                elif user_username in msg:
+                    toast_msg = "Username already registered"
+                else:
+                    toast_msg = "Duplicate entry"
+            else:
+                toast_msg = "System under maintenance"
+
+            toast_error = render_template("___toast_error.html", message=toast_msg)
+            return f"""<mixhtml mix-update="#toast">{ toast_error }</mixhtml>""", 400
 
         finally:
             if "cursor" in locals(): cursor.close()
             if "db" in locals(): db.close()
 
 
-
-
-##############################
+# HOME #############################
 @app.get("/home")
 @x.no_cache
 def home():
@@ -184,14 +206,7 @@ def home():
         q = "SELECT * FROM users JOIN posts ON user_pk = post_user_fk ORDER BY RAND() LIMIT 5"
         cursor.execute(q)
         tweets = cursor.fetchall()
-
-        # attach comments to each post
-        for tweet in tweets:
-            q_comments = "SELECT comment_text, user_first_name, user_last_name FROM comments JOIN users ON user_pk = user_fk WHERE post_fk = %s ORDER BY comment_created_at ASC"
-            cursor.execute(q_comments, (tweet["post_pk"],))
-            tweet["comments"] = cursor.fetchall()
-        
-        ic(tweets[0])
+        ic(tweets)
 
         q = "SELECT * FROM trends ORDER BY RAND() LIMIT 3"
         cursor.execute(q)
@@ -211,7 +226,8 @@ def home():
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
 
-##############################
+
+# VERIFY ACCOUNT #############################
 @app.route("/verify-account", methods=["GET"])
 def verify_account():
     try:
@@ -222,7 +238,7 @@ def verify_account():
         cursor.execute(q, (user_verified_at, user_verification_key))
         db.commit()
         if cursor.rowcount != 1: raise Exception("Invalid key", 400)
-        return redirect( url_for('login') )
+        return redirect(url_for('login', verified="1"))
     except Exception as ex:
         ic(ex)
         if "db" in locals(): db.rollback()
@@ -248,9 +264,7 @@ def logout():
     finally:
         pass
 
-
-
-##############################
+# HOME COMP #############################
 @app.get("/home-comp")
 def home_comp():
     try:
@@ -278,8 +292,7 @@ def home_comp():
     finally:
         pass
 
-
-##############################
+# PROFILE #############################
 @app.get("/profile")
 def profile():
     try:
@@ -297,9 +310,7 @@ def profile():
     finally:
         pass
 
-
-
-##############################
+# LIKE TWEET #############################
 @app.patch("/like-tweet")
 @x.no_cache
 def api_like_tweet():
@@ -318,58 +329,176 @@ def api_like_tweet():
         # if "db" in locals(): db.close()
         pass
 
-
-##############################
+# API CREATE POST #############################
 @app.route("/api-create-post", methods=["POST"])
 def api_create_post():
     try:
-        user = session.get("user", "")
-        if not user: return "invalid user"
-        user_pk = user["user_pk"]   
+        # -----------------------------
+        # Validate session
+        # -----------------------------
+        user = session.get("user")
+        if not user:
+            return "Invalid user", 403
+        user_pk = user["user_pk"]
 
-        post = x.validate_post(request.form.get("post", ""))
+        # -----------------------------
+        # Get text (optional)
+        # -----------------------------
+        post_text = request.form.get("post", "").strip()
+        if post_text:
+            post_text = x.validate_post(post_text)  # only validate if text exists
 
         post_pk = uuid.uuid4().hex
-        
-        post_image_path = ""
+        post_image_path = None
+
+        # -----------------------------
+        # Handle file upload (optional)
+        # -----------------------------
+        file = request.files.get("post_image")
+        if file and allowed_file(file.filename):
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            # Save relative path for templates
+            post_image_path = f"uploads/{filename}"
+        elif file:
+            toast_error = render_template("___toast_error.html", message="File type not allowed")
+            return f"<browser mix-bottom='#toast'>{toast_error}</browser>", 400
+
+        # -----------------------------
+        # Must have at least text or media
+        # -----------------------------
+        if not post_text and not post_image_path:
+            toast_error = render_template("___toast_error.html", message="Cannot post empty content")
+            return f"<browser mix-bottom='#toast'>{toast_error}</browser>", 400
+
+        # -----------------------------
+        # Insert into database
+        # -----------------------------
         db, cursor = x.db()
-        q = "INSERT INTO posts VALUES(%s, %s, %s, %s, %s)"
-        cursor.execute(q, (post_pk, user_pk, post, 0, post_image_path))
+        cursor.execute("""
+            INSERT INTO posts (post_pk, post_user_fk, post_message, post_total_likes, post_image_path)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (post_pk, user_pk, post_text, 0, post_image_path))
         db.commit()
-        toast_ok = render_template("___toast_ok.html", message="The world is reading your post !")
+
+        # -----------------------------
+        # Render HTML for frontend
+        # -----------------------------
+        toast_ok = render_template("___toast_ok.html", message="The world is reading your post!")
         tweet = {
             "user_first_name": user["user_first_name"],
             "user_last_name": user["user_last_name"],
             "user_username": user["user_username"],
             "user_avatar_path": user["user_avatar_path"],
-            "post_message": post,
+            "post_message": post_text,
+            "post_pk": post_pk,
+            "post_image_path": post_image_path
         }
         html_post_container = render_template("___post_container.html")
-        html_post = render_template("_tweet.html", tweet=tweet)
+        html_post = render_template("_tweet.html", tweet=tweet, user=user)
+
         return f"""
             <browser mix-bottom="#toast">{toast_ok}</browser>
             <browser mix-top="#posts">{html_post}</browser>
             <browser mix-replace="#post_container">{html_post_container}</browser>
         """
+
     except Exception as ex:
-        ic(ex)
         if "db" in locals(): db.rollback()
-
-        # User errors
-        if "x-error post" in str(ex):
-            toast_error = render_template("___toast_error.html", message=f"Post - {x.POST_MIN_LEN} to {x.POST_MAX_LEN} characters")
-            return f"""<browser mix-bottom="#toast">{toast_error}</browser>"""
-
-        # System or developer error
+        import traceback; traceback.print_exc()
         toast_error = render_template("___toast_error.html", message="System under maintenance")
-        return f"""<browser mix-bottom="#toast">{ toast_error }</browser>""", 500
-
+        return f"<browser mix-bottom='#toast'>{toast_error}</browser>", 500
     finally:
         if "cursor" in locals(): cursor.close()
-        if "db" in locals(): db.close()    
+        if "db" in locals(): db.close()
 
 
-##############################
+
+# API UPDATE POST ################################
+@app.route("/api-update-post/<post_pk>", methods=["POST"])
+def api_update_post(post_pk):
+    user = session.get("user")
+    if not user:
+        return jsonify({"success": False, "error": "User not logged in"}), 403
+
+    new_text = request.form.get("post_message", "").strip()
+    if not new_text:
+        return jsonify({"success": False, "error": "No content provided"}), 400
+
+    try:
+        db, cursor = x.db()
+
+        # Debug: print incoming data
+        print("Session user:", user)
+        print("Updating post_pk:", post_pk)
+        print("New text:", new_text)
+
+        # Check if post exists and belongs to user first
+        cursor.execute("SELECT post_user_fk FROM posts WHERE post_pk=%s", (post_pk,))
+        row = cursor.fetchone()
+        print("DB row:", row)
+
+        if not row:
+            return jsonify({"success": False, "error": "Post not found"}), 404
+        if row["post_user_fk"] != user["user_pk"]:
+            return jsonify({"success": False, "error": "Not authorized"}), 403
+
+        # Now safe to update
+        cursor.execute(
+            "UPDATE posts SET post_message=%s WHERE post_pk=%s AND post_user_fk=%s",
+            (new_text, post_pk, user["user_pk"])
+        )
+        db.commit()
+        print("Rows updated:", cursor.rowcount)
+
+        return jsonify({"success": True, "post_message": new_text})
+
+    except Exception as e:
+        if "db" in locals(): db.rollback()
+        print("Error updating post:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if "cursor" in locals(): cursor.close()
+        if "db" in locals(): db.close()
+
+
+# API DELETE POST #############################
+@app.route("/api-delete-post/<post_pk>", methods=["POST"])
+def api_delete_post(post_pk):
+    try:
+        user = session.get("user", "")
+        if not user:
+            return jsonify({"success": False, "error": "Invalid user"}), 403
+        user_pk = user["user_pk"]
+
+        db, cursor = x.db()
+
+        # Check if post exists and belongs to user
+        cursor.execute("SELECT post_user_fk FROM posts WHERE post_pk=%s", (post_pk,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"success": False, "error": "Post not found"}), 404
+        if row["post_user_fk"] != user_pk:
+            return jsonify({"success": False, "error": "Not authorized"}), 403
+
+        # Delete post
+        cursor.execute("DELETE FROM posts WHERE post_pk=%s", (post_pk,))
+        db.commit()
+
+        return jsonify({"success": True, "post_pk": post_pk})
+
+    except Exception as ex:
+        if "db" in locals(): db.rollback()
+        print("Delete post exception:", ex)   # 🔹 DEBUG: print real error
+        return jsonify({"success": False, "error": "Error deleting post"}), 500
+    finally:
+        if "cursor" in locals(): cursor.close()
+        if "db" in locals(): db.close()
+
+
+# API CREATE POST #############################
 @app.route("/api-create-comment/<post_fk>", methods=["POST"])
 def api_create_comment(post_fk):
     try:
@@ -421,7 +550,7 @@ def api_create_comment(post_fk):
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()    
 
-##############################
+# API UPDATE PROFILE #############################
 @app.route("/api-update-profile", methods=["POST"])
 def api_update_profile():
 
@@ -473,28 +602,44 @@ def api_update_profile():
         if "db" in locals(): db.close()
 
 
-
-##############################
+# API SEARCH #############################
 @app.post("/api-search")
 def api_search():
     try:
-        # TODO: The input search_for must be validated
         search_for = request.form.get("search_for", "")
-        if not search_for: return """empty search field""", 400
+        if not search_for: 
+            return "empty search field", 400
+
         part_of_query = f"%{search_for}%"
         ic(search_for)
+
         db, cursor = x.db()
-        q = "SELECT * FROM users WHERE user_username LIKE %s"
-        cursor.execute(q, (part_of_query,))
+
+        # Search users by username or first name
+        q_users = """
+        SELECT * FROM users 
+        WHERE user_username LIKE %s OR user_first_name LIKE %s
+        """
+        cursor.execute(q_users, (part_of_query, part_of_query))
         users = cursor.fetchall()
-        return jsonify(users)
+
+        # Search posts
+        q_posts = "SELECT * FROM posts WHERE post_message LIKE %s"
+        cursor.execute(q_posts, (part_of_query,))
+        posts = cursor.fetchall()
+
+        return jsonify({
+            "users": users,
+            "posts": posts
+        })
+
     except Exception as ex:
         ic(ex)
         return str(ex)
+    
     finally:
         if "cursor" in locals(): cursor.close()
         if "db" in locals(): db.close()
-
 
 
 ##############################
@@ -555,3 +700,76 @@ def home():  # Function can keep the same name
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+# API FOLLOW ###########################
+@app.route("/api-follow", methods=["POST"])
+def api_follow():
+    user = session.get("user")
+    if not user:
+        return jsonify({"success": False, "error": "Not logged in"}), 403
+
+    following_pk = request.form.get("following_pk")
+    if not following_pk:
+        return jsonify({"success": False, "error": "Missing following_pk"}), 400
+
+    try:
+        db, cursor = x.db()
+
+        # Prevent duplicates
+        cursor.execute(
+            "SELECT 1 FROM follows WHERE follow_follower_fk=%s AND follow_following_fk=%s LIMIT 1",
+            (user["user_pk"], following_pk)
+        )
+        if cursor.fetchone():
+            return jsonify({"success": True})  # Already following
+
+        follow_pk = uuid.uuid4().hex
+
+        # Insert follow
+        cursor.execute(
+            "INSERT INTO follows (follow_pk, follow_follower_fk, follow_following_fk) VALUES (%s, %s, %s)",
+            (follow_pk, user["user_pk"], following_pk)
+        )
+
+        db.commit()
+        return jsonify({"success": True})
+
+    except Exception as e:
+        if "db" in locals(): db.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+    finally:
+        if "cursor" in locals(): cursor.close()
+        if "db" in locals(): db.close()
+
+
+
+# API UNFOLLOW ###########################
+@app.route("/api-unfollow", methods=["POST"])
+def api_unfollow():
+    user = session.get("user")
+    if not user:
+        return jsonify({"success": False, "error": "Not logged in"}), 403
+
+    following_pk = request.form.get("following_pk")
+    if not following_pk:
+        return jsonify({"success": False, "error": "Missing following_pk"}), 400
+
+    try:
+        db, cursor = x.db()
+
+        cursor.execute(
+            "DELETE FROM follows WHERE follow_follower_fk=%s AND follow_following_fk=%s",
+            (user["user_pk"], following_pk)
+        )
+
+        db.commit()
+        return jsonify({"success": True})
+
+    except Exception as e:
+        if "db" in locals(): db.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+    finally:
+        if "cursor" in locals(): cursor.close()
+        if "db" in locals(): db.close()
